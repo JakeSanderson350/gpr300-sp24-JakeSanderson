@@ -18,9 +18,67 @@ int screenHeight = 720;
 float prevFrameTime;
 float deltaTime;
 
+//Cached data
+#include <ew/shader.h>
+
+#include <ew/model.h>
+#include <ew/transform.h>
+
+#include <ew/texture.h>
+
+#include <ew/camera.h>
+#include <ew/cameracontroller.h>
+ew::Camera camera;
+ew::CameraController camerController;
+
+void initCamera()
+{
+	camera.position = glm::vec3(0.0f, 0.0f, 5.0f);
+	camera.target = glm::vec3(0.0f, 0.0f, 0.0f);
+	camera.aspectRatio = (float)screenWidth / screenHeight;
+	camera.fov = 60.0f;
+}
+
+void drawThing(ew::Shader& _shader, ew::Model& _model, ew::Transform& _modelTranform, GLuint& _texture)
+{
+	// 1. pipeline definition
+	glEnable(GL_CULL_FACE);
+	glCullFace(GL_BACK);
+
+	glEnable(GL_DEPTH_TEST);
+
+	// 2. gfx pass
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	glClearColor(0.6f, 0.8f, 0.92f, 1.0f);
+
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, _texture);
+
+	_modelTranform.rotation = glm::rotate(_modelTranform.rotation, deltaTime, glm::vec3(0.0f, 1.0f, 0.0f));
+
+	_shader.use();
+	_shader.setInt("_MainTexture", 0);
+	_shader.setMat4("transform_model", _modelTranform.modelMatrix());
+	_shader.setMat4("camera_viewproj", camera.projectionMatrix() * camera.viewMatrix());
+
+	_model.draw();
+}
+
 int main() {
 	GLFWwindow* window = initWindow("Assignment 0", screenWidth, screenHeight);
 	glfwSetFramebufferSizeCallback(window, framebufferSizeCallback);
+
+	//Set up assets
+	ew::Shader lit_shader = ew::Shader("assets/lit.vert", "assets/lit.frag");
+
+	ew::Model suzanne = ew::Model("assets/suzanne.obj");
+	ew::Transform monkeyTransform;
+
+	GLuint brickTexture = ew::loadTexture("assets/brick_color.jpg");
+
+
+	//Set up camera
+	initCamera();
 
 	while (!glfwWindowShouldClose(window)) {
 		glfwPollEvents();
@@ -29,9 +87,11 @@ int main() {
 		deltaTime = time - prevFrameTime;
 		prevFrameTime = time;
 
+		//MOVE CAMERA
+		camerController.move(window, &camera, deltaTime);
+
 		//RENDER
-		glClearColor(0.6f,0.8f,0.92f,1.0f);
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		drawThing(lit_shader, suzanne, monkeyTransform, brickTexture);
 
 		drawUI();
 
