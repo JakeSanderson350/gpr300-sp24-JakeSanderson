@@ -1,8 +1,8 @@
 #version 450
 
 in Surface{
-	vec3 world_pos;
-	vec3 world_normal;
+	vec3 worldPos;
+	vec3 worldNormal;
 	vec2 texcoord;
 }vs_out;
 
@@ -12,12 +12,21 @@ uniform sampler2D _MainTexture;
 uniform vec3 _EyePos;
 uniform vec3 _lightDirection = vec3(1.0, 0.0, 0.0);
 uniform vec3 _lightColor = vec3(1.0);
+uniform vec3 _AmbientColor = vec3(0.3, 0.4, 0.46);
+
+struct Material{
+	float Ka; //Ambient coefficient (0-1)
+	float Kd; //Diffuse coefficient (0-1)
+	float Ks; //Specular coefficient (0-1)
+	float Shininess; //Affects size of specular highlights
+};
+uniform Material _Material;
 
 out vec4 FragColor;
 
 void main()
 {
-	vec3 normal = normalize(vs_out.world_normal);
+	vec3 normal = normalize(vs_out.worldNormal);
 
 	vec3 toLight = -_lightDirection;
 
@@ -25,11 +34,12 @@ void main()
 	vec3 diffuseColor = _lightColor * diffuseFactor;
 
 	// Direction towards eye
-	vec3 toEye = normalize(_EyePos - vs_out.world_pos);
+	vec3 toEye = normalize(_EyePos - vs_out.worldPos);
 	vec3 h = normalize(toLight + toEye);
 
-	float specularFactor = pow(max(dot(normal, h), 0.0), 128);
-	vec3 lightColor = (diffuseFactor + specularFactor) * _lightColor;
+	float specularFactor = pow(max(dot(normal, h), 0.0), _Material.Shininess);
+	vec3 lightColor = (_Material.Kd * diffuseFactor + _Material.Ks * specularFactor) * _lightColor;
+	lightColor += _AmbientColor * _Material.Ka;
 
 	vec3 albedo = texture(_MainTexture, vs_out.texcoord).rgb;
 	vec3 object_color = albedo * diffuseColor;

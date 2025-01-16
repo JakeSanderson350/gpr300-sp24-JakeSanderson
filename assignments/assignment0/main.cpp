@@ -31,6 +31,13 @@ float deltaTime;
 ew::Camera camera;
 ew::CameraController camerController;
 
+struct Material {
+	float Ka = 1.0;
+	float Kd = 0.5;
+	float Ks = 0.5;
+	float Shininess = 128;
+}material;
+
 void initCamera()
 {
 	camera.position = glm::vec3(0.0f, 0.0f, 5.0f);
@@ -58,8 +65,14 @@ void drawThing(ew::Shader& _shader, ew::Model& _model, ew::Transform& _modelTran
 
 	_shader.use();
 	_shader.setInt("_MainTexture", 0);
-	_shader.setMat4("transform_model", _modelTranform.modelMatrix());
-	_shader.setMat4("camera_viewproj", camera.projectionMatrix() * camera.viewMatrix());
+	_shader.setMat4("_TransformModel", _modelTranform.modelMatrix());
+	_shader.setMat4("_CameraViewproj", camera.projectionMatrix() * camera.viewMatrix());
+	//Material uniforms
+	_shader.setFloat("_Material.Ka", material.Ka);
+	_shader.setFloat("_Material.Kd", material.Kd);
+	_shader.setFloat("_Material.Ks", material.Ks);
+	_shader.setFloat("_Material.Shininess", material.Shininess);
+
 
 	_model.draw();
 }
@@ -106,7 +119,21 @@ void drawUI() {
 	ImGui::NewFrame();
 
 	ImGui::Begin("Settings");
-	ImGui::Text("Add Controls Here!");
+
+	if (ImGui::Button("Reset Camera"))
+	{
+		initCamera();
+	}
+	
+	if (ImGui::CollapsingHeader("Material"))
+	{
+		ImGui::SliderFloat("AmbientK", &material.Ka, 0.0f, 1.0f);
+		ImGui::SliderFloat("DiffuseK", &material.Kd, 0.0f, 1.0f);
+		ImGui::SliderFloat("SpecularK", &material.Ks, 0.0f, 1.0f);
+		ImGui::SliderFloat("Shininess", &material.Shininess, 2.0f, 1024.0f);
+	}
+
+
 	ImGui::End();
 
 	ImGui::Render();
