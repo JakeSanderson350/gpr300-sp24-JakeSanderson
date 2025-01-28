@@ -8,6 +8,16 @@
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_opengl3.h>
 
+#include <ew/shader.h>
+
+#include <ew/model.h>
+#include <ew/transform.h>
+
+#include <ew/texture.h>
+
+#include <ew/camera.h>
+#include <ew/cameracontroller.h>
+
 void framebufferSizeCallback(GLFWwindow* window, int width, int height);
 GLFWwindow* initWindow(const char* title, int width, int height);
 void drawUI();
@@ -19,17 +29,26 @@ float prevFrameTime;
 float deltaTime;
 
 //Cached data
-#include <ew/shader.h>
 
-#include <ew/model.h>
-#include <ew/transform.h>
-
-#include <ew/texture.h>
-
-#include <ew/camera.h>
-#include <ew/cameracontroller.h>
 ew::Camera camera;
 ew::CameraController camerController;
+
+struct FullscreenQuad
+{
+	GLuint vao;
+	GLuint vbo;
+} fullscreenQuad;
+
+static float quadVertices[] = {
+	// pos (x,y) texcoord (u,v)
+	-1.0f, 1.0f, 0.0f, 1.0f,
+	-1.0f, -1.0f, 0.0f, 0.0f,
+	1.0f, -1.0f, 1.0f, 0.0f,
+
+	-1.0f, 1.0f, 0.0f, 1.0f,
+	1.0f, -1.0f, 1.0f, 0.0f,
+	1.0f, 1.0f, 1.0f, 1.0f,
+};
 
 struct Material {
 	float Ka = 1.0;
@@ -54,6 +73,25 @@ void initCamera()
 	camera.fov = 60.0f;
 }
 
+void initFullscreenQuad()
+{
+	//initialize fullscreen quad
+	glGenVertexArrays(1, &fullscreenQuad.vao);
+	glGenBuffers(1, &fullscreenQuad.vbo);
+
+	glBindVertexArray(fullscreenQuad.vao);
+	glBindBuffer(GL_ARRAY_BUFFER, fullscreenQuad.vbo);
+
+	//glBindVertexBuffer(0, fullscreenQuad.vbo, 0, sizeof(quadVertices));
+	glBufferData(GL_ARRAY_BUFFER, sizeof(quadVertices), &quadVertices, GL_STATIC_DRAW);
+	//glBindVertexArray(0);
+
+	glEnableVertexAttribArray(0); // positions
+	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(float) * 4, (void*)0);
+	glEnableVertexAttribArray(1); // texcoords
+	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(float) * 4, (void*) (2 * sizeof(float)));
+}
+
 void initFrameBuffer()
 {
 	glGenFramebuffers(1, &framebuffer.fbo);
@@ -74,10 +112,17 @@ void initFrameBuffer()
 		return;
 	}
 
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
 void drawThing(ew::Shader& _shader, ew::Model& _model, ew::Transform& _modelTranform, GLuint& _texture)
 {
+	// Bind framebuffer
+	glBindFramebuffer(GL_FRAMEBUFFER, framebuffer.fbo);
+
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+
 	// 1. pipeline definition
 	glEnable(GL_CULL_FACE);
 	glCullFace(GL_BACK);
@@ -85,11 +130,8 @@ void drawThing(ew::Shader& _shader, ew::Model& _model, ew::Transform& _modelTran
 	glEnable(GL_DEPTH_TEST);
 
 	// 2. gfx pass
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-	glClearColor(0.6f, 0.8f, 0.92f, 1.0f);
-
-	glActiveTexture(GL_TEXTURE0);
-	glBindTexture(GL_TEXTURE_2D, _texture);
+	/*glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	glClearColor(0.6f, 0.8f, 0.92f, 1.0f);*/
 
 	_modelTranform.rotation = glm::rotate(_modelTranform.rotation, deltaTime, glm::vec3(0.0f, 1.0f, 0.0f));
 
@@ -103,8 +145,27 @@ void drawThing(ew::Shader& _shader, ew::Model& _model, ew::Transform& _modelTran
 	_shader.setFloat("_Material.Ks", material.Ks);
 	_shader.setFloat("_Material.Shininess", material.Shininess);
 
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, _texture);
 
 	_model.draw();
+
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
+
+void drawFrameBuffer(ew::Shader& _shader)
+{
+	glDisable(GL_DEPTH_TEST);
+
+	_shader.use();
+	_shader.setInt("_MainTexture", 0);
+
+	glBindVertexArray(fullscreenQuad.vao);
+
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, framebuffer.color0);
+
+	glDrawArrays(GL_TRIANGLES, 0, 6);
 }
 
 int main() {
@@ -113,15 +174,21 @@ int main() {
 
 	//Set up assets
 	ew::Shader lit_shader = ew::Shader("assets/lit.vert", "assets/lit.frag");
+	ew::Shader full_shader = ew::Shader("assets/fullscreen.vert", "assets/fullscreen.frag");
+	ew::Shader inverse_shader = ew::Shader("assets/inverse.vert", "assets/inverse.frag");
+	ew::Shader grayscale_shader = ew::Shader("assets/grayscale.vert", "assets/grayscale.frag");
+	ew::Shader blur_shader = ew::Shader("assets/blur.vert", "assets/blur.frag");
+	ew::Shader chromatic_shader = ew::Shader("assets/chromatic.vert", "assets/chromatic.frag");
 
 	ew::Model suzanne = ew::Model("assets/suzanne.obj");
 	ew::Transform monkeyTransform;
 
 	GLuint brickTexture = ew::loadTexture("assets/brick_color.jpg");
 
-
 	//Set up camera
 	initCamera();
+
+	initFullscreenQuad();
 
 	initFrameBuffer();
 
@@ -132,11 +199,16 @@ int main() {
 		deltaTime = time - prevFrameTime;
 		prevFrameTime = time;
 
+		// Clear default buffer
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		glClearColor(0.6f, 0.8f, 0.92f, 1.0f);
+
 		//MOVE CAMERA
 		camerController.move(window, &camera, deltaTime);
 
 		//RENDER
 		drawThing(lit_shader, suzanne, monkeyTransform, brickTexture);
+		drawFrameBuffer(chromatic_shader);
 
 		drawUI();
 
@@ -165,6 +237,7 @@ void drawUI() {
 		ImGui::SliderFloat("Shininess", &material.Shininess, 2.0f, 1024.0f);
 	}
 
+	ImGui::Image((ImTextureID)(intptr_t)framebuffer.color0, ImVec2(screenWidth, screenHeight));
 
 	ImGui::End();
 
