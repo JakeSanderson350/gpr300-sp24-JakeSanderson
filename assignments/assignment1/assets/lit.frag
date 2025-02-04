@@ -1,5 +1,8 @@
 #version 450
 
+layout(location = 0) out vec4 fragColor0;
+layout(location = 1) out vec4 fragBright0;
+
 in Surface{
 	vec3 worldPos;
 	vec3 worldNormal;
@@ -7,6 +10,8 @@ in Surface{
 }vs_out;
 
 uniform sampler2D _MainTexture;
+
+const float brightnessThreshold = 1.0;
 
 // Light source
 uniform vec3 _EyePos;
@@ -47,5 +52,17 @@ void main()
 	//Shade with 0-1 normal
 	//FragColor = vec4(vs_out.normal * 0.5 + 0.5, 1.0f);
 	//FragColor = texture(_MainTexture, vs_out.texcoord);
-	FragColor = vec4(object_color * lightColor, 1.0);
+	fragColor0 = vec4(object_color * lightColor, 1.0);
+
+	// Check brightness
+	float brightness = dot(fragColor0.rgb, vec3(0.2126, 0.7152, 0.0722));
+
+	if (brightness > brightnessThreshold)
+	{
+		fragBright0 = fragColor0;
+	}
+	else
+	{
+		fragBright0 = vec4(0.0);
+	}
 }

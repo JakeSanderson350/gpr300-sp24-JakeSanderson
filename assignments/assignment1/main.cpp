@@ -39,6 +39,16 @@ struct FullscreenQuad
 	GLuint vbo;
 } fullscreenQuad;
 
+static int effect_index = 0;
+static std::vector<std::string> post_processing_effects = {
+	"None",
+	"Grayscale",
+	"Kernel Blur",
+	"Inverse",
+	"Chromatic Aberration",
+	"CRT",
+};
+
 static float quadVertices[] = {
 	// pos (x,y) texcoord (u,v)
 	-1.0f, 1.0f, 0.0f, 1.0f,
@@ -57,13 +67,78 @@ struct Material {
 	float Shininess = 128;
 }material;
 
+float exposure = 1.0f;
+
 struct FrameBuffer
+{
+	GLuint fbo;
+	GLuint color0;
+	GLuint depth;
+
+	void Initialize()
+	{
+		glGenFramebuffers(1, &framebufferTmp.fbo);
+		glBindFramebuffer(GL_FRAMEBUFFER, framebufferTmp.fbo);
+
+		// color attachment
+		glGenTextures(1, &framebufferTmp.color0);
+		glBindTexture(GL_TEXTURE_2D, framebufferTmp.color0);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 800, 600, 0, GL_RGB, GL_UNSIGNED_BYTE, nullptr);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, framebufferTmp.color0, 0);
+
+		//check completeness
+		if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+			printf("Framebuffer incomplete: %d", 1);
+			return;
+		}
+
+		glBindFramebuffer(GL_FRAMEBUFFER, 0);
+	}
+} framebufferTmp;
+
+struct FrameBufferHDR
 {
 	GLuint fbo;
 	GLuint color0;
 	GLuint color1;
 	GLuint depth;
-} framebuffer;
+
+	void Initialize()
+	{
+		glGenFramebuffers(1, &framebufferHDR.fbo);
+		glBindFramebuffer(GL_FRAMEBUFFER, framebufferHDR.fbo);
+
+		// color attachment
+		glGenTextures(1, &framebufferHDR.color0);
+		glBindTexture(GL_TEXTURE_2D, framebufferHDR.color0);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB16F, 800, 600, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, framebufferHDR.color0, 0);
+
+		// Other color attach for HDR
+		glGenTextures(1, &framebufferHDR.color1);
+		glBindTexture(GL_TEXTURE_2D, framebufferHDR.color1);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB16F, 800, 600, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr); //Changed from GL_RGB to GL_RGB16F
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, GL_TEXTURE_2D, framebufferHDR.color1, 0);
+
+		GLuint attachments[2] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1 };
+		glDrawBuffers(2, attachments);
+
+		//check completeness
+		if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+			printf("Framebuffer incomplete: %d", 1);
+			return;
+		}
+
+		glBindFramebuffer(GL_FRAMEBUFFER, 0);
+	}
+} framebufferHDR;
 
 void initCamera()
 {
@@ -92,33 +167,11 @@ void initFullscreenQuad()
 	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(float) * 4, (void*) (2 * sizeof(float)));
 }
 
-void initFrameBuffer()
-{
-	glGenFramebuffers(1, &framebuffer.fbo);
-	glBindFramebuffer(GL_FRAMEBUFFER, framebuffer.fbo);
-
-	// color attachment
-	glGenTextures(1, &framebuffer.color0);
-	glBindTexture(GL_TEXTURE_2D, framebuffer.color0);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 800, 600, 0, GL_RGB, GL_UNSIGNED_BYTE, nullptr);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, framebuffer.color0, 0);
-
-	//check completeness
-	if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
-		printf("Framebuffer incomplete: %d", 1);
-		return;
-	}
-
-	glBindFramebuffer(GL_FRAMEBUFFER, 0);
-}
 
 void drawThing(ew::Shader& _shader, ew::Model& _model, ew::Transform& _modelTranform, GLuint& _texture)
 {
 	// Bind framebuffer
-	glBindFramebuffer(GL_FRAMEBUFFER, framebuffer.fbo);
+	glBindFramebuffer(GL_FRAMEBUFFER, framebufferHDR.fbo);
 
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
@@ -160,16 +213,37 @@ void drawFrameBuffer(ew::Shader& _shader)
 	_shader.use();
 	_shader.setInt("_MainTexture", 0);
 
+	// HDR exposure
+	_shader.setFloat("_Exposure", exposure);
+
 	glBindVertexArray(fullscreenQuad.vao);
 
 	glActiveTexture(GL_TEXTURE0);
-	glBindTexture(GL_TEXTURE_2D, framebuffer.color0);
+	glBindTexture(GL_TEXTURE_2D, framebufferHDR.color0);
+
+	glDrawArrays(GL_TRIANGLES, 0, 6);
+}
+
+void drawFrameBufferHDR(ew::Shader& _shader)
+{
+	glDisable(GL_DEPTH_TEST);
+
+	_shader.use();
+	_shader.setInt("_MainTexture", 0);
+
+	// HDR exposure
+	_shader.setFloat("_Exposure", exposure);
+
+	glBindVertexArray(fullscreenQuad.vao);
+
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, framebufferHDR.color1);
 
 	glDrawArrays(GL_TRIANGLES, 0, 6);
 }
 
 int main() {
-	GLFWwindow* window = initWindow("Assignment 0", screenWidth, screenHeight);
+	GLFWwindow* window = initWindow("Assignment 1", screenWidth, screenHeight);
 	glfwSetFramebufferSizeCallback(window, framebufferSizeCallback);
 
 	//Set up assets
@@ -179,6 +253,8 @@ int main() {
 	ew::Shader grayscale_shader = ew::Shader("assets/grayscale.vert", "assets/grayscale.frag");
 	ew::Shader blur_shader = ew::Shader("assets/blur.vert", "assets/blur.frag");
 	ew::Shader chromatic_shader = ew::Shader("assets/chromatic.vert", "assets/chromatic.frag");
+	ew::Shader vignette_shader = ew::Shader("assets/vignette.vert", "assets/vignette.frag");
+	ew::Shader hdr_shader = ew::Shader("assets/hdr.vert", "assets/hdr.frag");
 
 	ew::Model suzanne = ew::Model("assets/suzanne.obj");
 	ew::Transform monkeyTransform;
@@ -190,7 +266,8 @@ int main() {
 
 	initFullscreenQuad();
 
-	initFrameBuffer();
+	//framebuffer.Initialize();
+	framebufferHDR.Initialize();
 
 	while (!glfwWindowShouldClose(window)) {
 		glfwPollEvents();
@@ -208,7 +285,31 @@ int main() {
 
 		//RENDER
 		drawThing(lit_shader, suzanne, monkeyTransform, brickTexture);
-		drawFrameBuffer(chromatic_shader);
+
+		switch (effect_index)
+		{
+		case 1:
+			drawFrameBuffer(grayscale_shader);
+			break;
+		case 2:
+			drawFrameBuffer(blur_shader);
+			break;
+		case 3:
+			drawFrameBuffer(inverse_shader);
+			break;
+		case 4:
+			drawFrameBuffer(chromatic_shader);
+			break;
+		case 5:
+			drawFrameBuffer(hdr_shader);
+			break;
+		case 6:
+			drawFrameBuffer(hdr_shader);
+			break;
+		default:
+			drawFrameBuffer(vignette_shader);
+			break;
+		}
 
 		drawUI();
 
@@ -237,7 +338,27 @@ void drawUI() {
 		ImGui::SliderFloat("Shininess", &material.Shininess, 2.0f, 1024.0f);
 	}
 
-	ImGui::Image((ImTextureID)(intptr_t)framebuffer.color0, ImVec2(screenWidth, screenHeight));
+	if (ImGui::BeginCombo("Effect", post_processing_effects[effect_index].c_str()))
+	{
+		for (auto n = 0; n < post_processing_effects.size(); ++n)
+		{
+			auto is_selected = (post_processing_effects[effect_index] == post_processing_effects[n]);
+			if (ImGui::Selectable(post_processing_effects[n].c_str(), is_selected))
+			{
+				effect_index = n;
+			}
+			if (is_selected)
+			{
+				ImGui::SetItemDefaultFocus();
+			}
+		}
+		ImGui::EndCombo();
+	}
+
+	ImGui::SliderFloat("Exposure", &exposure, 0.0f, 10.0f);
+
+	ImGui::Image((ImTextureID)(intptr_t)framebufferHDR.color0, ImVec2(screenWidth, screenHeight));
+	ImGui::Image((ImTextureID)(intptr_t)framebufferHDR.color1, ImVec2(screenWidth, screenHeight));
 
 	ImGui::End();
 
