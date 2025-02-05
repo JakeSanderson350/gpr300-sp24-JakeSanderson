@@ -46,7 +46,8 @@ static std::vector<std::string> post_processing_effects = {
 	"Kernel Blur",
 	"Inverse",
 	"Chromatic Aberration",
-	"CRT",
+	"Vignette",
+	"HDR"
 };
 
 static float quadVertices[] = {
@@ -67,7 +68,10 @@ struct Material {
 	float Shininess = 128;
 }material;
 
+// HDR uniform
 float exposure = 1.0f;
+// Fisheye uniform
+float distortion = 0.0f;
 
 struct FrameBuffer
 {
@@ -215,6 +219,7 @@ void drawFrameBuffer(ew::Shader& _shader)
 
 	// HDR exposure
 	_shader.setFloat("_Exposure", exposure);
+	_shader.setFloat("_Distortion", distortion);
 
 	glBindVertexArray(fullscreenQuad.vao);
 
@@ -224,20 +229,32 @@ void drawFrameBuffer(ew::Shader& _shader)
 	glDrawArrays(GL_TRIANGLES, 0, 6);
 }
 
-void drawFrameBufferHDR(ew::Shader& _shader)
+void drawFrameBufferLIT(ew::Shader& _shader, ew::Model& _model, ew::Transform& _modelTranform, GLuint& _texture)
 {
 	glDisable(GL_DEPTH_TEST);
 
 	_shader.use();
 	_shader.setInt("_MainTexture", 0);
+	_shader.setMat4("_TransformModel", _modelTranform.modelMatrix());
+	_shader.setMat4("_CameraViewproj", camera.projectionMatrix() * camera.viewMatrix());
+	//Material uniforms
+	_shader.setFloat("_Material.Ka", material.Ka);
+	_shader.setFloat("_Material.Kd", material.Kd);
+	_shader.setFloat("_Material.Ks", material.Ks);
+	_shader.setFloat("_Material.Shininess", material.Shininess);
 
-	// HDR exposure
-	_shader.setFloat("_Exposure", exposure);
 
 	glBindVertexArray(fullscreenQuad.vao);
 
 	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_2D, framebufferHDR.color1);
+
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	glClearColor(0.6f, 0.8f, 0.92f, 1.0f);;
+
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, _texture);
+	_model.draw();
 
 	glDrawArrays(GL_TRIANGLES, 0, 6);
 }
@@ -255,6 +272,7 @@ int main() {
 	ew::Shader chromatic_shader = ew::Shader("assets/chromatic.vert", "assets/chromatic.frag");
 	ew::Shader vignette_shader = ew::Shader("assets/vignette.vert", "assets/vignette.frag");
 	ew::Shader hdr_shader = ew::Shader("assets/hdr.vert", "assets/hdr.frag");
+	ew::Shader fisheye_shader = ew::Shader("assets/fisheye.vert", "assets/fisheye.frag");
 
 	ew::Model suzanne = ew::Model("assets/suzanne.obj");
 	ew::Transform monkeyTransform;
@@ -301,13 +319,14 @@ int main() {
 			drawFrameBuffer(chromatic_shader);
 			break;
 		case 5:
-			drawFrameBuffer(hdr_shader);
+			drawFrameBuffer(vignette_shader);
 			break;
 		case 6:
 			drawFrameBuffer(hdr_shader);
 			break;
 		default:
-			drawFrameBuffer(vignette_shader);
+			//drawFrameBufferLIT(lit_shader, suzanne, monkeyTransform, brickTexture);
+			drawFrameBuffer(fisheye_shader);
 			break;
 		}
 
@@ -356,6 +375,7 @@ void drawUI() {
 	}
 
 	ImGui::SliderFloat("Exposure", &exposure, 0.0f, 10.0f);
+	ImGui::SliderFloat("Distortion", &distortion, -10.0f, 10.0f);
 
 	ImGui::Image((ImTextureID)(intptr_t)framebufferHDR.color0, ImVec2(screenWidth, screenHeight));
 	ImGui::Image((ImTextureID)(intptr_t)framebufferHDR.color1, ImVec2(screenWidth, screenHeight));
