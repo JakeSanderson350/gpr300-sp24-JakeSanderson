@@ -18,6 +18,8 @@
 #include <ew/camera.h>
 #include <ew/cameracontroller.h>
 
+#include <js/framebuffer.h>
+
 void framebufferSizeCallback(GLFWwindow* window, int width, int height);
 GLFWwindow* initWindow(const char* title, int width, int height);
 void drawUI();
@@ -47,7 +49,8 @@ static std::vector<std::string> post_processing_effects = {
 	"Inverse",
 	"Chromatic Aberration",
 	"Vignette",
-	"HDR"
+	"HDR",
+	"Lens Distortion"
 };
 
 static float quadVertices[] = {
@@ -68,41 +71,7 @@ struct Material {
 	float Shininess = 128;
 }material;
 
-// HDR uniform
-float exposure = 1.0f;
-// Fisheye uniform
-float distortion = 0.0f;
-
-struct FrameBuffer
-{
-	GLuint fbo;
-	GLuint color0;
-	GLuint depth;
-
-	void Initialize()
-	{
-		glGenFramebuffers(1, &framebufferTmp.fbo);
-		glBindFramebuffer(GL_FRAMEBUFFER, framebufferTmp.fbo);
-
-		// color attachment
-		glGenTextures(1, &framebufferTmp.color0);
-		glBindTexture(GL_TEXTURE_2D, framebufferTmp.color0);
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 800, 600, 0, GL_RGB, GL_UNSIGNED_BYTE, nullptr);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, framebufferTmp.color0, 0);
-
-		//check completeness
-		if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
-			printf("Framebuffer incomplete: %d", 1);
-			return;
-		}
-
-		glBindFramebuffer(GL_FRAMEBUFFER, 0);
-	}
-} framebufferTmp;
-
+//js::Framebuffer framebufferHDR = js::createFramebuffer(screenWidth, screenHeight); weird null reference
 struct FrameBufferHDR
 {
 	GLuint fbo;
@@ -143,6 +112,13 @@ struct FrameBufferHDR
 		glBindFramebuffer(GL_FRAMEBUFFER, 0);
 	}
 } framebufferHDR;
+
+// HDR uniform
+float exposure = 1.0f;
+// Fisheye uniform
+float distortion = 0.0f;
+// Film grain uniform
+float noiseModifier = 0.5f;
 
 void initCamera()
 {
@@ -220,6 +196,7 @@ void drawFrameBuffer(ew::Shader& _shader)
 	// HDR exposure
 	_shader.setFloat("_Exposure", exposure);
 	_shader.setFloat("_Distortion", distortion);
+	_shader.setFloat("_NoiseModifier", noiseModifier);
 
 	glBindVertexArray(fullscreenQuad.vao);
 
@@ -246,11 +223,11 @@ void drawFrameBufferLIT(ew::Shader& _shader, ew::Model& _model, ew::Transform& _
 
 	glBindVertexArray(fullscreenQuad.vao);
 
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	glClearColor(0.6f, 0.8f, 0.92f, 1.0f);
+
 	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_2D, framebufferHDR.color1);
-
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-	glClearColor(0.6f, 0.8f, 0.92f, 1.0f);;
 
 	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_2D, _texture);
@@ -273,6 +250,7 @@ int main() {
 	ew::Shader vignette_shader = ew::Shader("assets/vignette.vert", "assets/vignette.frag");
 	ew::Shader hdr_shader = ew::Shader("assets/hdr.vert", "assets/hdr.frag");
 	ew::Shader fisheye_shader = ew::Shader("assets/fisheye.vert", "assets/fisheye.frag");
+	ew::Shader filmgrain_shader = ew::Shader("assets/filmgrain.vert", "assets/filmgrain.frag");
 
 	ew::Model suzanne = ew::Model("assets/suzanne.obj");
 	ew::Transform monkeyTransform;
@@ -284,7 +262,6 @@ int main() {
 
 	initFullscreenQuad();
 
-	//framebuffer.Initialize();
 	framebufferHDR.Initialize();
 
 	while (!glfwWindowShouldClose(window)) {
@@ -324,9 +301,12 @@ int main() {
 		case 6:
 			drawFrameBuffer(hdr_shader);
 			break;
+		case 7:
+			drawFrameBuffer(fisheye_shader);
+			break;
 		default:
 			//drawFrameBufferLIT(lit_shader, suzanne, monkeyTransform, brickTexture);
-			drawFrameBuffer(fisheye_shader);
+			drawFrameBuffer(filmgrain_shader);
 			break;
 		}
 
@@ -376,6 +356,7 @@ void drawUI() {
 
 	ImGui::SliderFloat("Exposure", &exposure, 0.0f, 10.0f);
 	ImGui::SliderFloat("Distortion", &distortion, -10.0f, 10.0f);
+	ImGui::SliderFloat("Noise", &noiseModifier, 0.0f, 5.0f);
 
 	ImGui::Image((ImTextureID)(intptr_t)framebufferHDR.color0, ImVec2(screenWidth, screenHeight));
 	ImGui::Image((ImTextureID)(intptr_t)framebufferHDR.color1, ImVec2(screenWidth, screenHeight));
