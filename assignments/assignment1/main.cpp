@@ -100,6 +100,14 @@ struct FrameBufferHDR
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, GL_TEXTURE_2D, framebufferHDR.color1, 0);
 
+		// Depth attachment
+		glGenTextures(1, &framebufferHDR.depth);
+		glBindTexture(GL_TEXTURE_2D, framebufferHDR.depth);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH24_STENCIL8, 800, 600, 0, GL_DEPTH_COMPONENT, GL_FLOAT, nullptr);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_TEXTURE_2D, framebufferHDR.depth, 0);
+
 		GLuint attachments[2] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1 };
 		glDrawBuffers(2, attachments);
 
@@ -119,6 +127,7 @@ float exposure = 1.0f;
 float distortion = 0.0f;
 // Film grain uniform
 float noiseModifier = 0.5f;
+float time = 0.0f;
 
 void initCamera()
 {
@@ -197,11 +206,18 @@ void drawFrameBuffer(ew::Shader& _shader)
 	_shader.setFloat("_Exposure", exposure);
 	_shader.setFloat("_Distortion", distortion);
 	_shader.setFloat("_NoiseModifier", noiseModifier);
+	_shader.setFloat("_Time", time);
 
 	glBindVertexArray(fullscreenQuad.vao);
 
 	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_2D, framebufferHDR.color0);
+
+	//Bind depth for fog
+	glActiveTexture(GL_TEXTURE1);
+	glBindTexture(GL_TEXTURE_2D, framebufferHDR.depth);
+	_shader.setInt("_DepthTexture", 1);
+	_shader.setVec3("_CameraPos", camera.position);
 
 	glDrawArrays(GL_TRIANGLES, 0, 6);
 }
@@ -251,6 +267,7 @@ int main() {
 	ew::Shader hdr_shader = ew::Shader("assets/hdr.vert", "assets/hdr.frag");
 	ew::Shader fisheye_shader = ew::Shader("assets/fisheye.vert", "assets/fisheye.frag");
 	ew::Shader filmgrain_shader = ew::Shader("assets/filmgrain.vert", "assets/filmgrain.frag");
+	ew::Shader fog_shader = ew::Shader("assets/fog.vert", "assets/fog.frag");
 
 	ew::Model suzanne = ew::Model("assets/suzanne.obj");
 	ew::Transform monkeyTransform;
@@ -267,7 +284,7 @@ int main() {
 	while (!glfwWindowShouldClose(window)) {
 		glfwPollEvents();
 
-		float time = (float)glfwGetTime();
+		time = (float)glfwGetTime();
 		deltaTime = time - prevFrameTime;
 		prevFrameTime = time;
 
@@ -306,7 +323,7 @@ int main() {
 			break;
 		default:
 			//drawFrameBufferLIT(lit_shader, suzanne, monkeyTransform, brickTexture);
-			drawFrameBuffer(filmgrain_shader);
+			drawFrameBuffer(fog_shader);
 			break;
 		}
 
