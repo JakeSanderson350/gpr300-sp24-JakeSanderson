@@ -9,17 +9,17 @@ in vec3 vsWorldPos;
 
 out vec4 FragColor;
 
-const float fogMax = 15.0;
-const float fogMin = 5.0;
+uniform float _FogFar = 15.0;
+uniform float _FogNear = 5.0;
 
 float getFogFactor(float _distance)
 {
-	if (_distance >= fogMax)
+	if (_distance >= _FogFar)
 		return 1;
-	if (_distance <= fogMin)
+	if (_distance <= _FogNear)
 		return 0;
 
-	return 1 - (fogMax - _distance) / (fogMax - fogMin);
+	return 1 - (_FogFar - _distance) / (_FogFar - _FogNear);
 }
 
 void main()

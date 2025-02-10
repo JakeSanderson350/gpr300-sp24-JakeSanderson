@@ -20,7 +20,7 @@ const vec2 offsets[9] = vec2[](
 	vec2(OFFSET, -OFFSET) // bottom-right
 );
 
-const float strength = 16.0;
+uniform float _Strength;
 const float kernel[9] = float[](
 	1.0, 2.0, 1.0,
 	2.0, 4.0, 2.0,
@@ -34,7 +34,7 @@ void main()
 	for (int i = 0; i < 9; i++)
 	{
 		vec3 local = texture(_MainTexture, vsTexcoord + offsets[i]).rgb;
-		avg += local * (kernel[i] / strength);
+		avg += local * (kernel[i] / _Strength);
 	}
 
 	vec3 albedo = texture(_MainTexture, vsTexcoord).rgb * avg;

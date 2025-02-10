@@ -45,12 +45,16 @@ static int effect_index = 0;
 static std::vector<std::string> post_processing_effects = {
 	"None",
 	"Grayscale",
-	"Kernel Blur",
+	"Gaussian Blur",
+	"Sharpen Blur",
+	"Edge Blur",
 	"Inverse",
 	"Chromatic Aberration",
 	"Vignette",
 	"HDR",
-	"Lens Distortion"
+	"Lens Distortion",
+	"Film Grain",
+	"Fog"
 };
 
 static float quadVertices[] = {
@@ -121,13 +125,20 @@ struct FrameBufferHDR
 	}
 } framebufferHDR;
 
-// HDR uniform
+// Uniform data
+// Blur
+float strength = 10;
+// HDR
 float exposure = 1.0f;
+float gamma = 2.2f;
 // Fisheye uniform
 float distortion = 0.0f;
 // Film grain uniform
 float noiseModifier = 0.5f;
 float time = 0.0f;
+// Fog
+float fogNear = 2.0f;
+float fogFar = 10.0f;
 
 void initCamera()
 {
@@ -202,11 +213,15 @@ void drawFrameBuffer(ew::Shader& _shader)
 	_shader.use();
 	_shader.setInt("_MainTexture", 0);
 
-	// HDR exposure
+	// Uniforms
 	_shader.setFloat("_Exposure", exposure);
+	_shader.setFloat("_Gamma", gamma);
 	_shader.setFloat("_Distortion", distortion);
 	_shader.setFloat("_NoiseModifier", noiseModifier);
 	_shader.setFloat("_Time", time);
+	_shader.setFloat("_Strength", strength);
+	_shader.setFloat("_FogNear", fogNear);
+	_shader.setFloat("_FogFar", fogFar);
 
 	glBindVertexArray(fullscreenQuad.vao);
 
@@ -261,7 +276,9 @@ int main() {
 	ew::Shader full_shader = ew::Shader("assets/fullscreen.vert", "assets/fullscreen.frag");
 	ew::Shader inverse_shader = ew::Shader("assets/inverse.vert", "assets/inverse.frag");
 	ew::Shader grayscale_shader = ew::Shader("assets/grayscale.vert", "assets/grayscale.frag");
-	ew::Shader blur_shader = ew::Shader("assets/blur.vert", "assets/blur.frag");
+	ew::Shader gaussian_shader = ew::Shader("assets/gaussianBlur.vert", "assets/gaussianBlur.frag");
+	ew::Shader sharpen_shader = ew::Shader("assets/sharpenBlur.vert", "assets/sharpenBlur.frag");
+	ew::Shader edge_shader = ew::Shader("assets/edgeBlur.vert", "assets/edgeBlur.frag");
 	ew::Shader chromatic_shader = ew::Shader("assets/chromatic.vert", "assets/chromatic.frag");
 	ew::Shader vignette_shader = ew::Shader("assets/vignette.vert", "assets/vignette.frag");
 	ew::Shader hdr_shader = ew::Shader("assets/hdr.vert", "assets/hdr.frag");
@@ -304,26 +321,40 @@ int main() {
 			drawFrameBuffer(grayscale_shader);
 			break;
 		case 2:
-			drawFrameBuffer(blur_shader);
+			strength = 10.0f;
+			drawFrameBuffer(gaussian_shader);
 			break;
 		case 3:
-			drawFrameBuffer(inverse_shader);
+			strength = 10.0f;
+			drawFrameBuffer(sharpen_shader);
 			break;
 		case 4:
-			drawFrameBuffer(chromatic_shader);
+			strength = 0.3f;
+			drawFrameBuffer(edge_shader);
 			break;
 		case 5:
-			drawFrameBuffer(vignette_shader);
+			drawFrameBuffer(inverse_shader);
 			break;
 		case 6:
-			drawFrameBuffer(hdr_shader);
+			drawFrameBuffer(chromatic_shader);
 			break;
 		case 7:
+			drawFrameBuffer(vignette_shader);
+			break;
+		case 8:
+			drawFrameBuffer(hdr_shader);
+			break;
+		case 9:
 			drawFrameBuffer(fisheye_shader);
 			break;
-		default:
-			//drawFrameBufferLIT(lit_shader, suzanne, monkeyTransform, brickTexture);
+		case 10:
+			drawFrameBuffer(filmgrain_shader);
+			break;
+		case 11:
 			drawFrameBuffer(fog_shader);
+			break;
+		default:
+			drawFrameBufferLIT(lit_shader, suzanne, monkeyTransform, brickTexture);
 			break;
 		}
 
@@ -371,12 +402,32 @@ void drawUI() {
 		ImGui::EndCombo();
 	}
 
-	ImGui::SliderFloat("Exposure", &exposure, 0.0f, 10.0f);
-	ImGui::SliderFloat("Distortion", &distortion, -10.0f, 10.0f);
-	ImGui::SliderFloat("Noise", &noiseModifier, 0.0f, 5.0f);
+	// Uniforms
+	if (effect_index >= 2 && effect_index <= 4)
+	{
+		ImGui::SliderFloat("Strength", &strength, -20.0f, 20.0f);
+	}
+	else if (effect_index == 8)
+	{
+		ImGui::SliderFloat("Exposure", &exposure, 0.0f, 10.0f);
+		ImGui::SliderFloat("Gamma", &gamma, 0.0f, 10.0f);
+	}
+	else if (effect_index == 9)
+	{
+		ImGui::SliderFloat("Distortion", &distortion, -10.0f, 10.0f);
+	}
+	else if (effect_index == 10)
+	{
+		ImGui::SliderFloat("Noise", &noiseModifier, 0.0f, 5.0f);
+	}
+	else if (effect_index == 11)
+	{
+		ImGui::SliderFloat("Near", &fogNear, 0.1f, 10.0f);
+		ImGui::SliderFloat("Far", &fogFar, 5.0f, 20.0f);
+	}
 
-	ImGui::Image((ImTextureID)(intptr_t)framebufferHDR.color0, ImVec2(screenWidth, screenHeight));
-	ImGui::Image((ImTextureID)(intptr_t)framebufferHDR.color1, ImVec2(screenWidth, screenHeight));
+	/*ImGui::Image((ImTextureID)(intptr_t)framebufferHDR.color0, ImVec2(screenWidth, screenHeight));
+	ImGui::Image((ImTextureID)(intptr_t)framebufferHDR.depth, ImVec2(screenWidth, screenHeight));*/
 
 	ImGui::End();
 
