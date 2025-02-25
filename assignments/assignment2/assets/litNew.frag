@@ -35,6 +35,8 @@ struct AmbientLight{
 uniform Material _Material;
 uniform Light _Light;
 
+uniform float _MinBias, _MaxBias;
+
 out vec4 FragColor;
 
 float shadowCalculation(vec4 _lightPos)
@@ -45,7 +47,23 @@ float shadowCalculation(vec4 _lightPos)
 	float lightDepth = texture(_ShadowMap, projCoords.xy).r;
 	float currentDepth = projCoords.z;
 
-	return currentDepth > lightDepth ? 1.0 : 0.0;
+	vec3 lightDir = normalize(_Light.lightPos - vs_out.worldPos);
+	float bias = max(_MaxBias * (1.0 - dot(vs_out.worldNormal, lightDir)), _MinBias);
+
+	float shadow = 0.0;
+	vec2 texelSize = 1.0 / textureSize(_ShadowMap, 0);
+
+	for (int x = -1; x <= 1; ++x)
+	{
+		for (int y = -1; y <= 1; ++y)
+		{
+			float pcfDepth = texture(_ShadowMap, projCoords.xy + vec2(x,y) * texelSize).r;
+			shadow += currentDepth - bias > pcfDepth ? 1.0 : 0.0;
+		}
+	}
+
+	//return currentDepth - bias > lightDepth ? 1.0 : 0.0;
+	return shadow /= 9.0;
 }
 
 vec3 blinnphong(vec3 _normal, vec3 _fragPos)
@@ -61,19 +79,26 @@ vec3 blinnphong(vec3 _normal, vec3 _fragPos)
 
 	// light components
 	vec3 diffuse = ndot1 * vec3(_Material.Kd);
-	vec3 specular = pow(ndoth, _Material.Shininess * 128.0) * vec3(_Material.Ks);
+	vec3 specular = pow(ndoth, _Material.Shininess) * vec3(_Material.Ks);
 
 	return diffuse + specular;
 }
 
 void main()
 {
-	vec3 lighting = blinnphong(vs_out.worldNormal, vs_out.worldPos);
+	vec3 bpLighting = blinnphong(vs_out.worldNormal, vs_out.worldPos);
+	vec3 ambient = _Material.Ka * _Light.lightColor;
 	float shadow = shadowCalculation(vs_out.lightPos);
 
-	lighting *= (1.0 - shadow);
-	lighting *= _Light.lightColor;
+//	lighting *= (1.0 - shadow);
+//	lighting *= _Light.lightColor;
 	vec3 objectColor = vs_out.worldNormal * 0.5 + 0.5;
 
-	FragColor = vec4(objectColor * lighting, 1.0);
+	//vec3 lighting = (ambient + (1.0 - shadow)) * bpLighting;
+	bpLighting *= (1.0 - shadow);
+	bpLighting *= ambient;
+	bpLighting *= _Light.lightColor;
+
+	FragColor = vec4(objectColor * bpLighting, 1.0);
+	//FragColor = texture(_ShadowMap, vs_out.texcoord);
 }

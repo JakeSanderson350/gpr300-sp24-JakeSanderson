@@ -38,6 +38,13 @@ out vec4 FragColor;
 
 float shadowCalculation(vec4 lightPos)
 {
+//	vec3 projCoords = _lightPos.xyz / _lightPos.w;
+//	projCoords = (projCoords * 0.5) + 0.5;
+//
+//	float lightDepth = texture(_ShadowMap, projCoords.xy).r;
+//	float currentDepth = projCoords.z;
+//
+//	return currentDepth > lightDepth ? 1.0 : 0.0;
 	return 0;
 }
 

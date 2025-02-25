@@ -49,6 +49,11 @@ struct Light {
 	glm::vec3 lightColor;
 }light;
 
+glm::vec3 suzzanePos = glm::vec3(0.0f);
+
+float minBias = 0.005;
+float maxBias = 0.05;
+
 struct DepthBuffer {
 	GLuint fbo;
 	GLuint depth;
@@ -61,7 +66,7 @@ struct DepthBuffer {
 		// Depth attachment
 		glGenTextures(1, &depth);
 		glBindTexture(GL_TEXTURE_2D, depth);
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH24_STENCIL8, 256, 256, 0, GL_DEPTH_COMPONENT, GL_FLOAT, nullptr);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH24_STENCIL8, 1024, 1024, 0, GL_DEPTH_COMPONENT, GL_FLOAT, nullptr);
 
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
@@ -108,17 +113,19 @@ void drawThing(ew::Shader& _shader, ew::Shader& _shaderShadow, ew::Model& _model
 
 	glBindFramebuffer(GL_FRAMEBUFFER, depthBuffer.fbo);
 	{
-		glEnable(GL_DEPTH_TEST);
-		glViewport(0, 0, 256, 256);
+		glViewport(0, 0, 1024, 1024);
 
+		glEnable(GL_DEPTH_TEST);
 		glClear(GL_DEPTH_BUFFER_BIT);
+		glCullFace(GL_FRONT);
 
 		_shaderShadow.use();
 
-		_shaderShadow.setMat4("_TransformModel", glm::mat4(1.0));
+		_shaderShadow.setMat4("_TransformModel", _modelTranform.modelMatrix());
 		_shaderShadow.setMat4("_LightViewproj", lightViewProj);
 
 		_model.draw();
+		glCullFace(GL_BACK);
 	}
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
@@ -150,6 +157,7 @@ void drawThing(ew::Shader& _shader, ew::Shader& _shaderShadow, ew::Model& _model
 		_shader.setInt("_ShadowMap", 0);
 		_shader.setMat4("_TransformModel", _modelTranform.modelMatrix());
 		_shader.setMat4("_CameraViewproj", camera.projectionMatrix() * camera.viewMatrix());
+		_shader.setMat4("_LightViewproj", lightViewProj);
 		//Material uniforms
 		_shader.setFloat("_Material.Ka", material.Ka);
 		_shader.setFloat("_Material.Kd", material.Kd);
@@ -159,6 +167,8 @@ void drawThing(ew::Shader& _shader, ew::Shader& _shaderShadow, ew::Model& _model
 		_shader.setVec3("_CamPos", camera.position);
 		_shader.setVec3("_Light.lightPos", light.lightPos);
 		_shader.setVec3("_Light.lightColor", light.lightColor);
+		_shader.setFloat("_MinBias", minBias);
+		_shader.setFloat("_MaxBias", maxBias);
 
 
 		_model.draw();
@@ -203,6 +213,7 @@ int main() {
 		updateScene(time);
 
 		//RENDER
+		monkeyTransform.position = suzzanePos;
 		drawThing(lit_shader, shadow_shader, suzanne, monkeyTransform, brickTexture, plane);
 
 		drawUI();
@@ -223,6 +234,8 @@ void drawUI() {
 	{
 		initCamera();
 	}
+
+	ImGui::DragFloat3("Suzanne Pos", &suzzanePos[0], 0.25f, -10.0f, 10.0f);
 	
 	if (ImGui::CollapsingHeader("Material"))
 	{
@@ -236,6 +249,8 @@ void drawUI() {
 	{
 		ImGui::DragFloat3("Light Pos", &light.lightPos[0], -10.0, 10.0);
 		ImGui::ColorEdit3("Light Color", &light.lightColor[0]);
+		ImGui::SliderFloat("Min Shadow Bias", &minBias, 0.0f, 0.05f);
+		ImGui::SliderFloat("Max Shadow Bias", &maxBias, 0.0f, 0.15f);
 	}
 
 	ImGui::Image((ImTextureID)(intptr_t)depthBuffer.depth, ImVec2(256, 256));
