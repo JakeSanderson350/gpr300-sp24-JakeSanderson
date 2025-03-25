@@ -78,6 +78,7 @@ struct FrameBuffer
 	GLuint color0;
 	GLuint color1;
 	GLuint color2;
+	GLuint lights;
 	GLuint depth;
 
 	void Initialize()
@@ -109,6 +110,14 @@ struct FrameBuffer
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, GL_TEXTURE_2D, framebuffer.color2, 0);
 
+		// Other color attach for Lights
+		glGenTextures(1, &framebuffer.lights);	// deffered lights
+		glBindTexture(GL_TEXTURE_2D, framebuffer.lights);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB16F, fbWidth, fbHeight, 0, GL_RGBA, GL_FLOAT, nullptr); //Changed from GL_RGB to GL_RGB16F
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT3, GL_TEXTURE_2D, framebuffer.lights, 0);
+
 		// Depth attachment
 		glGenTextures(1, &framebuffer.depth);
 		glBindTexture(GL_TEXTURE_2D, framebuffer.depth);
@@ -117,8 +126,8 @@ struct FrameBuffer
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_TEXTURE_2D, framebuffer.depth, 0);
 
-		GLuint attachments[3] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2 };
-		glDrawBuffers(3, attachments);
+		GLuint attachments[4] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2, GL_COLOR_ATTACHMENT3 };
+		glDrawBuffers(4, attachments);
 
 		//check completeness
 		if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
@@ -159,14 +168,23 @@ void initCamera()
 	camera.fov = 60.0f;
 }
 
+glm::vec3 randomColor()
+{
+	float r = (rand() % 256) / 255.0f;
+	float g = (rand() % 256) / 255.0f;
+	float b = (rand() % 256) / 255.0f;
+
+	return glm::vec3(r, g, b);
+}
+
 void initLights()
 {
 	for (int i = 0; i < lightEdgeNum; i++)
 	{
 		for (int j = 0; j < lightEdgeNum; j++)
 		{
-			lights[i + j].lightPos = glm::vec3(i * spacer, 4, j * spacer);
-			lights[i + j].lightColor = glm::vec3(1.0f, 0.0f, 1.0f);
+			lights[(i * lightEdgeNum) + j].lightPos = glm::vec3(i * spacer, 4, j * spacer);
+			lights[(i * lightEdgeNum) + j].lightColor = randomColor();
 		}
 	}
 
@@ -181,8 +199,8 @@ void drawLights(ew::Shader& _shader)
 
 	/*glBindFramebuffer(GL_READ_FRAMEBUFFER, framebuffer.fbo);
 	glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);*/
-	glBlitNamedFramebuffer(framebuffer.fbo, 0, 0, 0, fbWidth, fbHeight, 0, 0, screenWidth, screenWidth, GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT, GL_NEAREST);
-	//glBindFramebuffer(GL_FRAMEBUFFER, 0);
+	//glBlitNamedFramebuffer(framebuffer.fbo, framebuffer.lights, 0, 0, fbWidth, fbHeight, 0, 0, screenWidth, screenWidth, GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT, GL_NEAREST);
+	glBindFramebuffer(GL_FRAMEBUFFER, framebuffer.fbo);
 	glEnable(GL_DEPTH_TEST);
 
 	_shader.use();
@@ -199,6 +217,8 @@ void drawLights(ew::Shader& _shader)
 		_shader.setVec3("_Light.lightColor", lights[i].lightColor);
 		sphere.draw();
 	}
+
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
 void drawLighting(ew::Shader& _shader)
@@ -218,8 +238,13 @@ void drawLighting(ew::Shader& _shader)
 	_shader.setFloat("_Material.Ks", material.Ks);
 	_shader.setFloat("_Material.Shininess", material.Shininess);
 	_shader.setVec3("_CamPos", camera.position);
-	_shader.setVec3("_Light.lightPos", light.lightPos);
-	_shader.setVec3("_Light.lightColor", light.lightColor);
+	/*_shader.setVec3("_Light.lightPos", light.lightPos);
+	_shader.setVec3("_Light.lightColor", light.lightColor);*/
+	for (int i = 0; i < lightsNum; i++)
+	{
+		_shader.setVec3("_Lights[" + std::to_string(i) + "].lightPos", light.lightPos);
+		_shader.setVec3("_Lights[" + std::to_string(i) + "].lightColor", light.lightColor);
+	}
 
 	glBindVertexArray(fullscreenQuad.vao);
 
@@ -294,7 +319,7 @@ int main() {
 
 	light.lightPos = glm::vec3(0.0, 2.0, 0.0);
 	light.lightColor = glm::vec3(1.0, 0.0, 1.0);
-	sphere.load(ew::createSphere(0.5f, 4));
+	sphere.load(ew::createSphere(0.5f, 20));
 
 	//Set up camera
 	initCamera();
@@ -311,10 +336,9 @@ int main() {
 
 		//RENDER
 		drawGeometry(geo_shader, suzanne, monkeyTransform, brickTexture);
-		drawLighting(lit_shader);
-
-		
 		drawLights(lights_shader);
+		drawLighting(lit_shader);
+		
 
 		drawUI();
 
@@ -355,7 +379,7 @@ void drawUI() {
 	ImGui::Text("Number of suzes: ");
 	ImGui::Text(std::to_string(totalSuzes).c_str());
 
-	ImGui::Image((ImTextureID)(intptr_t)framebuffer.color0, ImVec2(fbWidth, fbHeight));
+	ImGui::Image((ImTextureID)(intptr_t)framebuffer.lights, ImVec2(fbWidth, fbHeight));
 	ImGui::Image((ImTextureID)(intptr_t)framebuffer.color1, ImVec2(fbWidth, fbHeight));
 	ImGui::Image((ImTextureID)(intptr_t)framebuffer.color2, ImVec2(fbWidth, fbHeight));
 	ImGui::Image((ImTextureID)(intptr_t)framebuffer.depth, ImVec2(fbWidth, fbHeight));

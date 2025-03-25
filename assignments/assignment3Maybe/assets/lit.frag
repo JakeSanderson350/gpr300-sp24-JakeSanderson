@@ -19,28 +19,44 @@ uniform sampler2D _Position;
 uniform sampler2D _Normal;
 
 uniform Light _Light;
+const int NUM_LIGHTS = 64;
+uniform Light _Lights[NUM_LIGHTS];
 uniform Material _Material;
 uniform vec3 _CamPos;
 
 out vec4 FragColor;
 
-vec3 blinnphong(vec3 _normal, vec3 _fragPos)
+vec3 blinnphong(vec3 _normal, vec3 _fragPos, vec3 _lightPos)
 {
 	// normalize inputs
 	vec3 viewDir = normalize(_CamPos - _fragPos);
-	vec3 lightDir = normalize(_Light.lightPos - _fragPos);
+
+	vec3 lightDir = normalize(_lightPos - _fragPos);
 	vec3 halfwayDir = normalize(lightDir + viewDir);
 
 	//dot products
 	float ndot1 = max(dot(_normal, lightDir), 0.0);
 	float ndoth = max(dot(_normal, halfwayDir), 0.0);
 
-	// light components
+	//light components
 	vec3 diffuse = ndot1 * vec3(_Material.Kd);
 	vec3 specular = pow(ndoth, _Material.Shininess) * vec3(_Material.Ks);
 
 	return diffuse + specular;
 }
+
+vec3 calcPointLight(Light _light, vec3 _normal, vec3 _pos){
+	vec3 diff = _light.lightPos - _pos;
+	//Direction toward light position
+	vec3 toLight = normalize(diff);
+	//TODO: Usual blinn-phong calculations for diffuse + specular
+	vec3 lightColor = (blinnphong(_normal, _pos, _light.lightPos)) * _light.lightColor;
+	//Attenuation
+	float d = length(diff); //Distance to light
+	//lightColor*=attenuate(d,light.radius); //See below for attenuation options
+	return lightColor;
+}
+
 
 void main()
 {
@@ -50,9 +66,12 @@ void main()
 	vec3 normal = texture(_Normal, texcoord).xyz;
 
 	// caclulate lighting
-	vec3 bpLighting = blinnphong(normal, position);
-	vec3 ambient = _Material.Ka * _Light.lightColor;
-	bpLighting *= ambient;
+	vec3 totalLight = vec3(0);
 
-	FragColor = vec4(objectColor , 1.0);
+	for (int i = 0; i < NUM_LIGHTS; i++)
+	{
+		totalLight += calcPointLight(_Lights[i], normal, position);
+	}
+
+	FragColor = vec4(objectColor * totalLight , 1.0);
 }
