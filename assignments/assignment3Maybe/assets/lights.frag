@@ -3,7 +3,6 @@
 layout(location = 3) out vec4 LightVolume;
 
 struct Light{
-	vec3 lightPos;
 	vec3 lightColor;
 };
 
@@ -19,5 +18,5 @@ out vec4 FragColor;
 
 void main()
 {
-	LightVolume = vec4(_Light.lightColor, 1.0);
+	FragColor = vec4(_Light.lightColor, 1.0);
 }

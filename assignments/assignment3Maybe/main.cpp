@@ -110,24 +110,16 @@ struct FrameBuffer
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, GL_TEXTURE_2D, framebuffer.color2, 0);
 
-		// Other color attach for Lights
-		glGenTextures(1, &framebuffer.lights);	// deffered lights
-		glBindTexture(GL_TEXTURE_2D, framebuffer.lights);
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB16F, fbWidth, fbHeight, 0, GL_RGBA, GL_FLOAT, nullptr); //Changed from GL_RGB to GL_RGB16F
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT3, GL_TEXTURE_2D, framebuffer.lights, 0);
+		GLuint attachments[3] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2 };
+		glDrawBuffers(3, attachments);
 
 		// Depth attachment
 		glGenTextures(1, &framebuffer.depth);
 		glBindTexture(GL_TEXTURE_2D, framebuffer.depth);
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH24_STENCIL8, fbWidth, fbHeight, 0, GL_DEPTH_STENCIL, GL_UNSIGNED_INT_24_8, nullptr);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH24_STENCIL8, fbWidth, fbHeight, 0, GL_DEPTH_COMPONENT, GL_FLOAT, nullptr);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_TEXTURE_2D, framebuffer.depth, 0);
-
-		GLuint attachments[4] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2, GL_COLOR_ATTACHMENT3 };
-		glDrawBuffers(4, attachments);
+		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, framebuffer.depth, 0);
 
 		//check completeness
 		if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
@@ -149,14 +141,16 @@ struct Material {
 struct Light {
 	glm::vec3 lightPos;
 	glm::vec3 lightColor;
+	float radius;
 }light;
 
 const int lightEdgeNum = 8;
 const int lightsNum = lightEdgeNum * lightEdgeNum;
 Light lights[lightsNum];
 
-float spacer = 3;
-int suzaneNum = 1;
+float lightSpacer = 8;
+float suzanneSpacer = 3;
+int suzaneNum = 7;
 
 ew::Mesh sphere;
 
@@ -183,25 +177,27 @@ void initLights()
 	{
 		for (int j = 0; j < lightEdgeNum; j++)
 		{
-			lights[(i * lightEdgeNum) + j].lightPos = glm::vec3(i * spacer, 4, j * spacer);
+			lights[(i * lightEdgeNum) + j].lightPos = glm::vec3(i * lightSpacer, 4, j * lightSpacer);
 			lights[(i * lightEdgeNum) + j].lightColor = randomColor();
+			lights[(i * lightEdgeNum) + j].radius = 15.0f;
 		}
 	}
 
-	/*for (int i = 0; i < lightsNum)
+	// Move lights os they are more centered over plane
+	for (int i = 0; i < lightsNum; i++)
 	{
-
-	}*/
+		lights[i].lightPos += glm::vec3(-27.5, 0, -27.5);
+	}
 }
 
 void drawLights(ew::Shader& _shader)
 {
-
-	/*glBindFramebuffer(GL_READ_FRAMEBUFFER, framebuffer.fbo);
-	glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);*/
-	//glBlitNamedFramebuffer(framebuffer.fbo, framebuffer.lights, 0, 0, fbWidth, fbHeight, 0, 0, screenWidth, screenWidth, GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT, GL_NEAREST);
-	glBindFramebuffer(GL_FRAMEBUFFER, framebuffer.fbo);
+	glBindFramebuffer(GL_READ_FRAMEBUFFER, framebuffer.fbo);
+	glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+	glBlitFramebuffer(0, 0, fbWidth, fbHeight, 0, 0, screenWidth, screenHeight, GL_DEPTH_BUFFER_BIT, GL_NEAREST);
+	
 	glEnable(GL_DEPTH_TEST);
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
 	_shader.use();
 
@@ -210,10 +206,9 @@ void drawLights(ew::Shader& _shader)
 
 	// Draw lights
 	int lightsSize = sizeof(lights) / sizeof(lights[0]);
-	for (int i = 0; i < 64; i++)
+	for (int i = 0; i < lightsNum; i++)
 	{
 		_shader.setMat4("_TransformModel", glm::translate(lights[i].lightPos));
-		_shader.setVec3("_Light.lightPos", lights[i].lightPos);
 		_shader.setVec3("_Light.lightColor", lights[i].lightColor);
 		sphere.draw();
 	}
@@ -242,8 +237,9 @@ void drawLighting(ew::Shader& _shader)
 	_shader.setVec3("_Light.lightColor", light.lightColor);*/
 	for (int i = 0; i < lightsNum; i++)
 	{
-		_shader.setVec3("_Lights[" + std::to_string(i) + "].lightPos", light.lightPos);
-		_shader.setVec3("_Lights[" + std::to_string(i) + "].lightColor", light.lightColor);
+		_shader.setVec3("_Lights[" + std::to_string(i) + "].lightPos", lights[i].lightPos);
+		_shader.setVec3("_Lights[" + std::to_string(i) + "].lightColor", lights[i].lightColor);
+		_shader.setFloat("_Lights[" + std::to_string(i) + "].radius", lights[i].radius);
 	}
 
 	glBindVertexArray(fullscreenQuad.vao);
@@ -261,7 +257,7 @@ void drawLighting(ew::Shader& _shader)
 	glBindVertexArray(0);
 }
 
-void drawGeometry(ew::Shader& _shader, ew::Model& _model, ew::Transform& _modelTransform, GLuint& _texture)
+void drawGeometry(ew::Shader& _shader, ew::Model& _model, ew::Mesh& _plane, ew::Transform& _modelTransform, GLuint& _texture)
 {
 	glBindFramebuffer(GL_FRAMEBUFFER, framebuffer.fbo);
 	// bind framebuffer here/
@@ -275,13 +271,13 @@ void drawGeometry(ew::Shader& _shader, ew::Model& _model, ew::Transform& _modelT
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	glClearColor(0.6f, 0.8f, 0.92f, 1.0f);
 
-	/*glActiveTexture(GL_TEXTURE0);
-	glBindTexture(GL_TEXTURE_2D, _texture);*/
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, _texture);
 
 	//_modelTransform.rotation = glm::rotate(_modelTransform.rotation, deltaTime, glm::vec3(0.0f, 1.0f, 0.0f));
 
 	_shader.use();
-	//_shader.setInt("_MainTexture", 0);
+	_shader.setInt("_MainTexture", 0);
 	_shader.setMat4("_CameraViewproj", camera.projectionMatrix() * camera.viewMatrix());
 
 	for (int i = -suzaneNum; i <= suzaneNum; i++)
@@ -290,10 +286,13 @@ void drawGeometry(ew::Shader& _shader, ew::Model& _model, ew::Transform& _modelT
 		{
 			// Draw suzanne
 			//_modelTransform.position = glm::vec3(_modelTransform.position.x + (i * 2), 0, _modelTransform.position.z + (j * 2));
-			_shader.setMat4("_TransformModel", glm::translate(_modelTransform.modelMatrix(), glm::vec3(i * spacer, 0, j * spacer)));
+			_shader.setMat4("_TransformModel", glm::translate(_modelTransform.modelMatrix(), glm::vec3(i * suzanneSpacer, 0, j * suzanneSpacer)));
 			_model.draw();
 		}
 	}
+
+	_shader.setMat4("_TransformModel", glm::translate(_modelTransform.modelMatrix(), glm::vec3(0, -3, 0)));
+	_plane.draw();
 
 	//unbind here
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -321,6 +320,8 @@ int main() {
 	light.lightColor = glm::vec3(1.0, 0.0, 1.0);
 	sphere.load(ew::createSphere(0.5f, 20));
 
+	ew::Mesh plane = ew::createPlane(50, 50, 10);
+
 	//Set up camera
 	initCamera();
 
@@ -335,10 +336,9 @@ int main() {
 		camerController.move(window, &camera, deltaTime);
 
 		//RENDER
-		drawGeometry(geo_shader, suzanne, monkeyTransform, brickTexture);
-		drawLights(lights_shader);
+		drawGeometry(geo_shader, suzanne, plane, monkeyTransform, brickTexture);
 		drawLighting(lit_shader);
-		
+		drawLights(lights_shader);
 
 		drawUI();
 
@@ -364,25 +364,18 @@ void drawUI() {
 		ImGui::SliderFloat("AmbientK", &material.Ka, 0.0f, 1.0f);
 		ImGui::SliderFloat("DiffuseK", &material.Kd, 0.0f, 1.0f);
 		ImGui::SliderFloat("SpecularK", &material.Ks, 0.0f, 1.0f);
-		ImGui::SliderFloat("Shininess", &material.Shininess, 2.0f, 1024.0f);
-	}
-
-	if (ImGui::CollapsingHeader("Light"))
-	{
-		ImGui::DragFloat3("Light Pos", &light.lightPos[0], 1.0f, -100.0f, 100.0f);
-		ImGui::ColorEdit3("Light Color", &light.lightColor[0]);
+		ImGui::SliderFloat("Shininess", &material.Shininess, 2.0f, 256.0f);
 	}
 
 	ImGui::SliderInt("Num Suzes", &suzaneNum, 1, 100);
-	ImGui::SliderFloat("Spacer", &spacer, 0.0f, 10.0f);
+	ImGui::SliderFloat("Suzanne Spacer", &suzanneSpacer, 0.0f, 10.0f);
 	int totalSuzes = pow(2 * suzaneNum + 1, 2);
 	ImGui::Text("Number of suzes: ");
 	ImGui::Text(std::to_string(totalSuzes).c_str());
 
-	ImGui::Image((ImTextureID)(intptr_t)framebuffer.lights, ImVec2(fbWidth, fbHeight));
+	ImGui::Image((ImTextureID)(intptr_t)framebuffer.color0, ImVec2(fbWidth, fbHeight));
 	ImGui::Image((ImTextureID)(intptr_t)framebuffer.color1, ImVec2(fbWidth, fbHeight));
 	ImGui::Image((ImTextureID)(intptr_t)framebuffer.color2, ImVec2(fbWidth, fbHeight));
-	ImGui::Image((ImTextureID)(intptr_t)framebuffer.depth, ImVec2(fbWidth, fbHeight));
 
 
 	ImGui::End();

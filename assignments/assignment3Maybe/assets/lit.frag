@@ -12,6 +12,7 @@ struct Material{
 struct Light{
 	vec3 lightPos;
 	vec3 lightColor;
+	float radius;
 };
 
 uniform sampler2D _Albedo;
@@ -45,16 +46,28 @@ vec3 blinnphong(vec3 _normal, vec3 _fragPos, vec3 _lightPos)
 	return diffuse + specular;
 }
 
-vec3 calcPointLight(Light _light, vec3 _normal, vec3 _pos){
+float attenuateExponential(float _dist, float _radius)
+{
+	float i = clamp(1.0 - pow(_dist / _radius, 4.0), 0.0, 1.0);
+	return i * i;
+}
+
+float attenuateLinear(float _dist, float _radius)
+{
+	return clamp((_radius - _dist) / _radius, 0.0, 1.0);
+}
+
+vec3 calcPointLight(Light _light, vec3 _normal, vec3 _pos)
+{
 	vec3 diff = _light.lightPos - _pos;
 	//Direction toward light position
 	vec3 toLight = normalize(diff);
-	//TODO: Usual blinn-phong calculations for diffuse + specular
+	//Blinn-phong calculations for diffuse + specular
 	vec3 lightColor = (blinnphong(_normal, _pos, _light.lightPos)) * _light.lightColor;
 	//Attenuation
-	float d = length(diff); //Distance to light
-	//lightColor*=attenuate(d,light.radius); //See below for attenuation options
-	return lightColor;
+	float d = length(diff); //Distance to lights
+	lightColor *= attenuateExponential(d, _light.radius);
+	return lightColor ;
 }
 
 
