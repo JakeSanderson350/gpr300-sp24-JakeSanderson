@@ -11,6 +11,8 @@
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_opengl3.h>
 
+#include "js/portal.h"
+
 void framebufferSizeCallback(GLFWwindow* window, int width, int height);
 GLFWwindow* initWindow(const char* title, int width, int height);
 void drawUI();
@@ -33,6 +35,8 @@ float deltaTime;
 
 #include <ew/camera.h>
 #include <ew/cameracontroller.h>
+
+#include <js/portal.h>
 ew::Camera camera;
 ew::CameraController camerController;
 
@@ -123,12 +127,12 @@ struct FrameBuffer
 		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, framebuffer.depth, 0);
 
 		// Stencil
-		glGenTextures(1, &framebuffer.stencil);
+		/*glGenTextures(1, &framebuffer.stencil);
 		glBindTexture(GL_TEXTURE_2D, framebuffer.stencil);
 		glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH24_STENCIL8, fbWidth, fbHeight, 0, GL_DEPTH_COMPONENT, GL_FLOAT, nullptr);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_TEXTURE_2D, framebuffer.stencil, 0);
+		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_TEXTURE_2D, framebuffer.stencil, 0);*/
 
 		//check completeness
 		if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
@@ -153,13 +157,13 @@ struct Light {
 	float radius;
 }light;
 
-const int lightEdgeNum = 8;
+const int lightEdgeNum = 1;
 const int lightsNum = lightEdgeNum * lightEdgeNum;
 Light lights[lightsNum];
 
 float lightSpacer = 8;
 float suzanneSpacer = 3;
-int suzaneNum = 7;
+int suzaneNum = 1;
 
 ew::Mesh sphere;
 
@@ -187,16 +191,16 @@ void initLights()
 		for (int j = 0; j < lightEdgeNum; j++)
 		{
 			lights[(i * lightEdgeNum) + j].lightPos = glm::vec3(i * lightSpacer, 4, j * lightSpacer);
-			lights[(i * lightEdgeNum) + j].lightColor = randomColor();
-			lights[(i * lightEdgeNum) + j].radius = 15.0f;
+			lights[(i * lightEdgeNum) + j].lightColor = glm::vec3(1);
+			lights[(i * lightEdgeNum) + j].radius = 45.0f;
 		}
 	}
 
 	// Move lights os they are more centered over plane
-	for (int i = 0; i < lightsNum; i++)
+	/*for (int i = 0; i < lightsNum; i++)
 	{
 		lights[i].lightPos += glm::vec3(-27.5, 0, -27.5);
-	}
+	}*/
 }
 
 void drawLights(ew::Shader& _shader)
@@ -289,9 +293,9 @@ void drawGeometry(ew::Shader& _shader, ew::Model& _model, ew::Mesh& _plane, ew::
 	_shader.setInt("_MainTexture", 0);
 	_shader.setMat4("_CameraViewproj", camera.projectionMatrix() * camera.viewMatrix());
 
-	for (int i = -suzaneNum; i <= suzaneNum; i++)
+	for (int i = 1; i <= suzaneNum; i++)
 	{
-		for (int j = -suzaneNum; j <= suzaneNum; j++)
+		for (int j = 1; j <= suzaneNum; j++)
 		{
 			// Draw suzanne
 			//_modelTransform.position = glm::vec3(_modelTransform.position.x + (i * 2), 0, _modelTransform.position.z + (j * 2));
@@ -318,6 +322,8 @@ int main() {
 
 	ew::Model suzanne = ew::Model("assets/suzanne.obj");
 	ew::Transform monkeyTransform;
+
+	js::Portal portal1;
 
 	GLuint brickTexture = ew::loadTexture("assets/brick_color.jpg");
 	
@@ -346,8 +352,8 @@ int main() {
 
 		//RENDER
 		drawGeometry(geo_shader, suzanne, plane, monkeyTransform, brickTexture);
-		/*drawLighting(lit_shader);
-		drawLights(lights_shader);*/
+		drawLighting(lit_shader);
+		drawLights(lights_shader);
 
 		drawUI();
 
