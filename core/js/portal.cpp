@@ -9,6 +9,7 @@ namespace js
 		destination = nullptr;
 		normal = glm::vec3(1, 0, 0);
 		color = glm::vec3(1, 0, 1);
+		transform = ew::Transform();
 	}
 	Portal::Portal(Portal* peartal)
 	{
@@ -17,6 +18,7 @@ namespace js
 		peartal->SetDestination(this);
 		normal = glm::vec3(1, 0, 0);
 		color = glm::vec3(1, 0, 1);
+		transform = ew::Transform();
 	}
 	Portal::Portal(Portal* peartal, glm::vec3 kolor)
 	{
@@ -25,6 +27,7 @@ namespace js
 		peartal->SetDestination(this);
 		normal = glm::vec3(1, 0, 0);
 		color = kolor;
+		transform = ew::Transform();
 	}
 	Portal::~Portal()
 	{
@@ -53,6 +56,14 @@ namespace js
 	{
 		return destination;
 	}
+	void Portal::SetColor(glm::vec3 _color)
+	{
+		color = _color;
+	}
+	glm::vec3 Portal::GetColor()
+	{
+		return color;
+	}
 
 	//function to get the new clipped projection matrix using oblique view frustum near plane clipping technique
 	glm::mat4 const Portal::ClippedProjMat(glm::mat4 const &viewMat, glm::mat4 const &projMat)
@@ -79,7 +90,7 @@ namespace js
 		portalShader.use();
 		//set uniforms
 		portalShader.setMat4("_TransformModel", transform.modelMatrix());
-		portalShader.setMat4("_CameraViewproj", ClippedProjMat(viewMat, projMat));
+		portalShader.setMat4("_CameraViewproj", projMat * viewMat);
 		portalShader.setVec3("_PortalColor", color);
 		//portalPlane.draw();
 

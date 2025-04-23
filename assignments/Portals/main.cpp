@@ -36,7 +36,6 @@ float deltaTime;
 #include <ew/camera.h>
 #include <ew/cameracontroller.h>
 
-#include <js/portal.h>
 ew::Camera camera;
 ew::CameraController camerController;
 
@@ -165,11 +164,24 @@ float lightSpacer = 8;
 float suzanneSpacer = 3;
 int suzaneNum = 1;
 
-ew::Mesh sphere;
+//Global models
+ew::Model* suzanne;
+ew::Transform monkeyTransform;
+GLuint brickTexture;
 
-js::Portal portal1;
-js::Portal portal2;
+ew::Mesh sphere;
+ew::Mesh plane;
+
+js::Portal* portal1 = nullptr;
+js::Portal* portal2 = nullptr;
 std::vector<js::Portal*> portals;
+
+void Cleanup()
+{
+	delete portal1;
+	delete portal2;
+	delete suzanne;
+}
 
 void initCamera()
 {
@@ -179,17 +191,24 @@ void initCamera()
 	camera.fov = 60.0f;
 }
 
-void initPortals(js::Portal p1, js::Portal p2)
+void initPortals()
 {
-	p1 = js::Portal();
-	p2 = js::Portal(&p1);
-	p1.SetDestination(&p2);
-	p1.initBuffers();
-	p2.initBuffers();
-	p1.transform.position = glm::vec3(5, 0, 0);
-	p1.transform.position = glm::vec3(-5, 0, 5);
-	portals.push_back(&p1);
-	portals.push_back(&p2);
+	portal1 = new js::Portal();
+	portal2 = new js::Portal(portal1);
+	portal1->SetDestination(portal2);
+
+	portal1->initBuffers();
+	portal2->initBuffers();
+
+	portal1->SetColor(glm::vec3(0.0f, 1.0f, 0.0f));
+	portal2->SetColor(glm::vec3(0.0f, 0.0f, 1.0f));
+	portal1->transform.position = glm::vec3(0, 1, 0);
+	portal1->transform.rotation = glm::quat(1.0, 0.0, 0.0, 0.0);
+	portal2->transform.position = glm::vec3(-5, 1, 0);
+	portal2->transform.rotation = glm::quat(1.0, 0.0, 0.0, 0.0);
+
+	portals.push_back(portal1);
+	portals.push_back(portal2);
 }
 
 glm::vec3 randomColor()
@@ -220,9 +239,41 @@ void initLights()
 	}*/
 }
 
-void recursiveDraw(glm::mat4 const& viewMat, glm::mat4 const& projMat, size_t maxRecursionLevel, size_t recursionLevel, ew::Shader portalShader)
+void drawOtherObjects(glm::mat4 const& viewMat, glm::mat4 const& projMat, ew::Shader geoShader)
 {
-	for (js::Portal* p : portals)
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, brickTexture);
+
+	geoShader.use();
+	geoShader.setInt("_MainTexture", 0);
+	geoShader.setMat4("_CameraViewproj", camera.projectionMatrix() * camera.viewMatrix());
+
+	for (int i = 1; i <= suzaneNum; i++)
+	{
+		for (int j = 1; j <= suzaneNum; j++)
+		{
+			// Draw suzanne
+			//_modelTransform.position = glm::vec3(_modelTransform.position.x + (i * 2), 0, _modelTransform.position.z + (j * 2));
+			
+		}
+	}
+
+	geoShader.setMat4("_TransformModel", glm::translate(monkeyTransform.modelMatrix(), glm::vec3(0, 0, -5)));
+	suzanne->draw();
+
+	geoShader.setMat4("_TransformModel", glm::translate(monkeyTransform.modelMatrix(), glm::vec3(0, -3, 0)));
+	plane.draw();
+
+	geoShader.setMat4("_TransformModel", glm::translate(portal1->transform.position));
+	sphere.draw();
+	geoShader.setMat4("_TransformModel", glm::translate(portal2->transform.position));
+	sphere.draw();
+
+}
+
+void recursiveDraw(glm::mat4 const& viewMat, glm::mat4 const& projMat, size_t maxRecursionLevel, size_t recursionLevel, ew::Shader portalShader, ew::Shader geoShader)
+{
+	for (js::Portal* portal : portals)
 	{
 		// Disable color and depth writing
 		glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
@@ -247,8 +298,116 @@ void recursiveDraw(glm::mat4 const& viewMat, glm::mat4 const& projMat, size_t ma
 		glStencilMask(0xFF);
 
 		// Draw portal into stencil buffer
-		//p->draw(viewMat, projMat, portalShader);
+		portal->draw(viewMat, projMat, portalShader);
+
+		// Calculate viewing matrix of virtual cam
+		glm::mat4 destinationView =
+			viewMat * portal->transform.modelMatrix()
+			* glm::rotate(glm::mat4(1.0f), 180.0f, glm::vec3(0.0f, 1.0f, 0.0f) * portal->transform.rotation)
+			* glm::inverse(portal->GetDestination()->transform.modelMatrix()); //error happening here
+
+		// Base case, render inside of inner portal
+		if (recursionLevel == maxRecursionLevel)
+		{
+			// Enable color and depth drawing
+			glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+			glDepthMask(GL_TRUE);
+
+			// Clear the depth buffer so we don't interfere with stuff
+			// outside of this inner portal
+			glClear(GL_DEPTH_BUFFER_BIT);
+
+			// Enable the depth test
+			// So the stuff we render here is rendered correctly
+			glEnable(GL_DEPTH_TEST);
+
+			// Enable stencil test
+			// So we can limit drawing inside of the inner portal
+			glEnable(GL_STENCIL_TEST);
+
+			// Disable drawing into stencil buffer
+			glStencilMask(0x00);
+
+			// Draw only where stencil value == recursionLevel + 1
+			// which is where we just drew the new portal
+			glStencilFunc(GL_EQUAL, recursionLevel + 1, 0xFF);
+
+			// Draw scene objects with destinationView, limited to stencil buffer
+			// use an edited projection matrix to set the near plane to the portal plane
+			drawOtherObjects(destinationView, portal->ClippedProjMat(destinationView, projMat), geoShader);
+			//drawOtherObjects(destinationView, projMat);
+		}
+		else
+		{
+			// Recursion case
+			// Pass our new view matrix and the clipped projection matrix (see above)
+			recursiveDraw(destinationView, portal->ClippedProjMat(destinationView, projMat), maxRecursionLevel, recursionLevel + 1, portalShader, geoShader);
+		}
+
+		// Disable color and depth drawing
+		glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
+		glDepthMask(GL_FALSE);
+
+		// Enable stencil test and stencil drawing
+		glEnable(GL_STENCIL_TEST);
+		glStencilMask(0xFF);
+
+		// Fail stencil test when inside of our newly rendered
+		// inner portal
+		glStencilFunc(GL_NOTEQUAL, recursionLevel + 1, 0xFF);
+
+		// Decrement stencil value on stencil fail
+		// This resets the incremented values to what they were before,
+		// eventually ending up with a stencil buffer full of zero's again
+		// after the last (outer) step.
+		glStencilOp(GL_DECR, GL_KEEP, GL_KEEP);
+
+		// Draw portal into stencil buffer
+		portal->draw(viewMat, projMat, portalShader);
 	}
+
+	// Disable the stencil test and stencil writing
+	glDisable(GL_STENCIL_TEST);
+	glStencilMask(0x00);
+
+	// Disable color writing
+	glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
+
+	// Enable the depth test, and depth writing.
+	glEnable(GL_DEPTH_TEST);
+	glDepthMask(GL_TRUE);
+
+	// Make sure we always write the data into the buffer
+	glDepthFunc(GL_ALWAYS);
+
+	// Clear the depth buffer
+	glClear(GL_DEPTH_BUFFER_BIT);
+
+	// Draw portals into depth buffer
+	for (auto& portal : portals)
+		portal->draw(viewMat, projMat, portalShader);
+
+	// Reset the depth function to the default
+	glDepthFunc(GL_LESS);
+
+	// Enable stencil test and disable writing to stencil buffer
+	glEnable(GL_STENCIL_TEST);
+	glStencilMask(0x00);
+
+	// Draw at stencil >= recursionlevel
+	// which is at the current level or higher (more to the inside)
+	// This basically prevents drawing on the outside of this level.
+	glStencilFunc(GL_LEQUAL, recursionLevel, 0xFF);
+
+	// Enable color and depth drawing again
+	glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+	glDepthMask(GL_TRUE);
+
+	// And enable the depth test
+	glEnable(GL_DEPTH_TEST);
+
+	// Draw scene objects normally, only at recursionLevel
+	drawOtherObjects(viewMat, projMat, geoShader);
 }
 
 void drawLights(ew::Shader& _shader)
@@ -318,7 +477,7 @@ void drawLighting(ew::Shader& _shader)
 	glBindVertexArray(0);
 }
 
-void drawGeometry(ew::Shader& _shader, ew::Model& _model, ew::Mesh& _plane, ew::Transform& _modelTransform, GLuint& _texture, ew::Shader portalShader)
+void drawGeometry(ew::Shader& _geoshader, ew::Model& _model, ew::Mesh& _plane, ew::Transform& _modelTransform, GLuint& _texture, ew::Shader portalShader)
 {
 	glBindFramebuffer(GL_FRAMEBUFFER, framebuffer.fbo);
 	// bind framebuffer here/
@@ -337,26 +496,28 @@ void drawGeometry(ew::Shader& _shader, ew::Model& _model, ew::Mesh& _plane, ew::
 
 	//_modelTransform.rotation = glm::rotate(_modelTransform.rotation, deltaTime, glm::vec3(0.0f, 1.0f, 0.0f));
 
-	_shader.use();
-	_shader.setInt("_MainTexture", 0);
-	_shader.setMat4("_CameraViewproj", camera.projectionMatrix() * camera.viewMatrix());
+	//_geoshader.use();
+	//_geoshader.setInt("_MainTexture", 0);
+	//_geoshader.setMat4("_CameraViewproj", camera.projectionMatrix() * camera.viewMatrix());
 
-	for (int i = 1; i <= suzaneNum; i++)
-	{
-		for (int j = 1; j <= suzaneNum; j++)
-		{
-			// Draw suzanne
-			//_modelTransform.position = glm::vec3(_modelTransform.position.x + (i * 2), 0, _modelTransform.position.z + (j * 2));
-			_shader.setMat4("_TransformModel", glm::translate(_modelTransform.modelMatrix(), glm::vec3(i * suzanneSpacer, 0, j * suzanneSpacer)));
-			_model.draw();
-		}
-	}
+	//for (int i = 1; i <= suzaneNum; i++)
+	//{
+	//	for (int j = 1; j <= suzaneNum; j++)
+	//	{
+	//		// Draw suzanne
+	//		//_modelTransform.position = glm::vec3(_modelTransform.position.x + (i * 2), 0, _modelTransform.position.z + (j * 2));
+	//		_geoshader.setMat4("_TransformModel", glm::translate(_modelTransform.modelMatrix(), glm::vec3(i * suzanneSpacer, 0, j * suzanneSpacer)));
+	//		_model.draw();
+	//	}
+	//}
 
-	_shader.setMat4("_TransformModel", glm::translate(_modelTransform.modelMatrix(), glm::vec3(0, -3, 0)));
-	_plane.draw();
+	//_geoshader.setMat4("_TransformModel", glm::translate(_modelTransform.modelMatrix(), glm::vec3(0, -3, 0)));
+	//_plane.draw();
+
+	//portal1.draw(camera.viewMatrix(), camera.projectionMatrix(), portalShader);
 
 	//portal drawing
-	//recursiveDraw(camera.viewMatrix(), camera.projectionMatrix(), 5, 0);  //Using camera matrices for now, may need to replace them with portal-specific ones
+	recursiveDraw(camera.viewMatrix(), camera.projectionMatrix(), 5, 0, portalShader, _geoshader);  //Using camera matrices for now, may need to replace them with portal-specific ones
 
 	//unbind here
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -372,13 +533,11 @@ int main() {
 	ew::Shader lights_shader = ew::Shader("assets/lights.vert", "assets/lights.frag");
 	ew::Shader portal_shader = ew::Shader("assets/portal.vert", "assets/portal.frag");
 
-	ew::Model suzanne = ew::Model("assets/suzanne.obj");
-	ew::Transform monkeyTransform;
-
+	suzanne = new ew::Model("assets/suzanne.obj");
 	
-	initPortals(portal1, portal2);
+	initPortals();
 
-	GLuint brickTexture = ew::loadTexture("assets/brick_color.jpg");
+	brickTexture = ew::loadTexture("assets/brick_color.jpg");
 	
 	fullscreenQuad.initFullscreenQuad();
 	framebuffer.Initialize();
@@ -388,7 +547,7 @@ int main() {
 	light.lightColor = glm::vec3(1.0, 0.0, 1.0);
 	sphere.load(ew::createSphere(0.5f, 20));
 
-	ew::Mesh plane = ew::createPlane(50, 50, 10);
+	plane = ew::createPlane(50, 50, 10);
 
 	//Set up camera
 	initCamera();
@@ -404,7 +563,7 @@ int main() {
 		camerController.move(window, &camera, deltaTime);
 
 		//RENDER
-		drawGeometry(geo_shader, suzanne, plane, monkeyTransform, brickTexture, portal_shader);
+		drawGeometry(geo_shader, *suzanne, plane, monkeyTransform, brickTexture, portal_shader);
 		drawLighting(lit_shader);
 		drawLights(lights_shader);
 
@@ -412,6 +571,8 @@ int main() {
 
 		glfwSwapBuffers(window);
 	}
+
+	Cleanup();
 	printf("Shutting down...");
 }
 

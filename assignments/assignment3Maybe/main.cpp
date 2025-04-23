@@ -122,14 +122,6 @@ struct FrameBuffer
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, framebuffer.depth, 0);
 
-		// Stencil
-		glGenTextures(1, &framebuffer.stencil);
-		glBindTexture(GL_TEXTURE_2D, framebuffer.stencil);
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH24_STENCIL8, fbWidth, fbHeight, 0, GL_DEPTH_COMPONENT, GL_FLOAT, nullptr);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_TEXTURE_2D, framebuffer.stencil, 0);
-
 		//check completeness
 		if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
 			printf("Framebuffer incomplete: %d", 1);
@@ -346,8 +338,8 @@ int main() {
 
 		//RENDER
 		drawGeometry(geo_shader, suzanne, plane, monkeyTransform, brickTexture);
-		/*drawLighting(lit_shader);
-		drawLights(lights_shader);*/
+		drawLighting(lit_shader);
+		drawLights(lights_shader);
 
 		drawUI();
 

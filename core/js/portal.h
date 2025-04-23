@@ -24,6 +24,8 @@ namespace js
 			
 			void SetDestination(Portal* peartal);
 			Portal* GetDestination();
+			void SetColor(glm::vec3 _color);
+			glm::vec3 GetColor();
 
 			glm::mat4 const ClippedProjMat(glm::mat4 const &viewMat, glm::mat4 const &projMat);
 
@@ -42,14 +44,14 @@ namespace js
 			
 			GLuint p_vao;
 			GLuint p_vbo;
-			float portalVertices[36] =
-			{
-					-0.5f, -0.5f,  0.0f,    0.0f, 0.0f, 0.0f,
-					 0.5f, -0.5f,  0.0f,    0.0f, 0.0f, 0.0f,
-					 0.5f,  0.5f,  0.0f,    0.0f, 0.0f, 0.0f,
-					 0.5f,  0.5f,  0.0f,    0.0f, 0.0f, 0.0f,
-					-0.5f,  0.5f,  0.0f,    0.0f, 0.0f, 0.0f,
-					-0.5f, -0.5f,  0.0f,    0.0f, 0.0f, 0.0f,
+			float portalVertices[18] = {
+				-1.0f, -1.4f, 0.0f,
+				1.0f, -1.4f, 0.0f,
+				1.0f, 1.4f, 0.0f,
+
+				1.0f, 1.4f, 0.0f,
+				-1.0f,  1.4f, 0.0f,
+				-1.0f, -1.4f, 0.0f,
 			};
 	};
 }
