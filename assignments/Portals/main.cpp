@@ -203,9 +203,9 @@ void initPortals()
 	portal1->SetColor(glm::vec3(0.0f, 1.0f, 0.0f));
 	portal2->SetColor(glm::vec3(0.0f, 0.0f, 1.0f));
 	portal1->transform.position = glm::vec3(0, 1, 0);
-	portal1->transform.rotation = glm::quat(1.0, 0.0, 0.0, 0.0);
+	portal1->transform.rotation = glm::quat(glm::radians(glm::vec3(0, 180, 0)));;
 	portal2->transform.position = glm::vec3(-5, 1, 0);
-	portal2->transform.rotation = glm::quat(1.0, 0.0, 0.0, 0.0);
+	portal2->transform.rotation = glm::quat(glm::radians(glm::vec3(0, 0, 0)));
 
 	portals.push_back(portal1);
 	portals.push_back(portal2);
@@ -248,15 +248,15 @@ void drawOtherObjects(glm::mat4 const& viewMat, glm::mat4 const& projMat, ew::Sh
 	geoShader.setInt("_MainTexture", 0);
 	geoShader.setMat4("_CameraViewproj", camera.projectionMatrix() * camera.viewMatrix());
 
-	for (int i = 1; i <= suzaneNum; i++)
-	{
-		for (int j = 1; j <= suzaneNum; j++)
-		{
-			// Draw suzanne
-			//_modelTransform.position = glm::vec3(_modelTransform.position.x + (i * 2), 0, _modelTransform.position.z + (j * 2));
-			
-		}
-	}
+	//for (int i = 1; i <= suzaneNum; i++)
+	//{
+	//	for (int j = 1; j <= suzaneNum; j++)
+	//	{
+	//		// Draw suzanne
+	//		//_modelTransform.position = glm::vec3(_modelTransform.position.x + (i * 2), 0, _modelTransform.position.z + (j * 2));
+	//		
+	//	}
+	//}
 
 	geoShader.setMat4("_TransformModel", glm::translate(monkeyTransform.modelMatrix(), glm::vec3(0, 0, -5)));
 	suzanne->draw();
@@ -303,8 +303,8 @@ void recursiveDraw(glm::mat4 const& viewMat, glm::mat4 const& projMat, size_t ma
 		// Calculate viewing matrix of virtual cam
 		glm::mat4 destinationView =
 			viewMat * portal->transform.modelMatrix()
-			* glm::rotate(glm::mat4(1.0f), 180.0f, glm::vec3(0.0f, 1.0f, 0.0f) * portal->transform.rotation)
-			* glm::inverse(portal->GetDestination()->transform.modelMatrix()); //error happening here
+			* glm::rotate(glm::mat4(1.0f), glm::radians(180.0f), glm::vec3(0.0f, 1.0f, 0.0f) * portal->transform.rotation)
+			* glm::inverse(portal->GetDestination()->transform.modelMatrix());
 
 		// Base case, render inside of inner portal
 		if (recursionLevel == maxRecursionLevel)
@@ -517,7 +517,7 @@ void drawGeometry(ew::Shader& _geoshader, ew::Model& _model, ew::Mesh& _plane, e
 	//portal1.draw(camera.viewMatrix(), camera.projectionMatrix(), portalShader);
 
 	//portal drawing
-	recursiveDraw(camera.viewMatrix(), camera.projectionMatrix(), 5, 0, portalShader, _geoshader);  //Using camera matrices for now, may need to replace them with portal-specific ones
+	recursiveDraw(camera.viewMatrix(), camera.projectionMatrix(), 0, 0, portalShader, _geoshader);  //Using camera matrices for now, may need to replace them with portal-specific ones
 
 	//unbind here
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
