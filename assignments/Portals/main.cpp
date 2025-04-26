@@ -267,12 +267,12 @@ void drawOtherObjects(glm::mat4 const& viewMat, glm::mat4 const& projMat, ew::Sh
 	//		
 	//	}
 	//}
-	geoShader.setMat4("_TransformModel", planeTransform.modelMatrix());
-	plane.draw();
+	
 
 	geoShader.setMat4("_TransformModel", monkeyTransform.modelMatrix());
 	suzanne->draw();
-
+	geoShader.setMat4("_TransformModel", planeTransform.modelMatrix());
+	plane.draw();
 	
 
 	/*geoShader.setMat4("_TransformModel", glm::translate(portal1->transform.position));
@@ -284,6 +284,11 @@ void drawOtherObjects(glm::mat4 const& viewMat, glm::mat4 const& projMat, ew::Sh
 
 void recursiveDraw(glm::mat4 const& viewMat, glm::mat4 const& projMat, size_t maxRecursionLevel, size_t recursionLevel, ew::Shader portalShader, ew::Shader geoShader)
 {
+	// Clear stencil buffer at start of frame
+	if (recursionLevel == 0) {
+		glClear(GL_STENCIL_BUFFER_BIT);
+	}
+
 	for (js::Portal* portal : portals)
 	{
 		// Disable color and depth writing
@@ -345,14 +350,14 @@ void recursiveDraw(glm::mat4 const& viewMat, glm::mat4 const& projMat, size_t ma
 
 			// Draw scene objects with destinationView, limited to stencil buffer
 			// use an edited projection matrix to set the near plane to the portal plane
-			drawOtherObjects(destinationView, portal->ClippedProjMat(destinationView, projMat, camera.position), geoShader);
+			drawOtherObjects(destinationView, portal->ClippedProjMat(destinationView, projMat), geoShader);
 			//drawOtherObjects(destinationView, projMat);
 		}
 		else
 		{
 			// Recursion case
 			// Pass our new view matrix and the clipped projection matrix (see above)
-			recursiveDraw(destinationView, portal->ClippedProjMat(destinationView, projMat, camera.position), maxRecursionLevel, recursionLevel + 1, portalShader, geoShader);
+			recursiveDraw(destinationView, portal->ClippedProjMat(destinationView, projMat), maxRecursionLevel, recursionLevel + 1, portalShader, geoShader);
 		}
 
 		// Disable color and depth drawing

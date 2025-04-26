@@ -27,7 +27,7 @@ namespace js
 			void SetColor(glm::vec3 _color);
 			glm::vec3 GetColor();
 
-			glm::mat4 const ClippedProjMat(glm::mat4 const &viewMat, glm::mat4 const &projMat, glm::vec3 const& camPos);
+			glm::mat4 const ClippedProjMat(glm::mat4 const &viewMat, glm::mat4 const &projMat);
 
 			void draw(glm::mat4 const& viewMat, glm::mat4 const& projMat, ew::Shader portalShader);
 			ew::Transform transform;
