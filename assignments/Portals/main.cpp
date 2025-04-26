@@ -171,6 +171,7 @@ GLuint brickTexture;
 
 ew::Mesh sphere;
 ew::Mesh plane;
+ew::Transform planeTransform;
 
 js::Portal* portal1 = nullptr;
 js::Portal* portal2 = nullptr;
@@ -191,6 +192,15 @@ void initCamera()
 	camera.fov = 60.0f;
 }
 
+void initModels()
+{
+	sphere.load(ew::createSphere(0.5f, 20));
+	plane = ew::createPlane(50, 50, 10);
+
+	monkeyTransform.position = glm::vec3(0, 0, 5);
+	planeTransform.position = glm::vec3(0, -3, 0);
+}
+
 void initPortals()
 {
 	portal1 = new js::Portal();
@@ -203,7 +213,7 @@ void initPortals()
 	portal1->SetColor(glm::vec3(0.0f, 1.0f, 0.0f));
 	portal2->SetColor(glm::vec3(0.0f, 0.0f, 1.0f));
 	portal1->transform.position = glm::vec3(0, 1, 0);
-	portal1->transform.rotation = glm::quat(glm::radians(glm::vec3(0, 180, 0)));;
+	portal1->transform.rotation = glm::quat(glm::radians(glm::vec3(0, 0, 0)));;
 	portal2->transform.position = glm::vec3(-5, 1, 0);
 	portal2->transform.rotation = glm::quat(glm::radians(glm::vec3(0, 0, 0)));
 
@@ -246,7 +256,7 @@ void drawOtherObjects(glm::mat4 const& viewMat, glm::mat4 const& projMat, ew::Sh
 
 	geoShader.use();
 	geoShader.setInt("_MainTexture", 0);
-	geoShader.setMat4("_CameraViewproj", camera.projectionMatrix() * camera.viewMatrix());
+	geoShader.setMat4("_CameraViewproj", projMat * viewMat);
 
 	//for (int i = 1; i <= suzaneNum; i++)
 	//{
@@ -257,17 +267,18 @@ void drawOtherObjects(glm::mat4 const& viewMat, glm::mat4 const& projMat, ew::Sh
 	//		
 	//	}
 	//}
-
-	geoShader.setMat4("_TransformModel", glm::translate(monkeyTransform.modelMatrix(), glm::vec3(0, 0, -5)));
-	suzanne->draw();
-
-	geoShader.setMat4("_TransformModel", glm::translate(monkeyTransform.modelMatrix(), glm::vec3(0, -3, 0)));
+	geoShader.setMat4("_TransformModel", planeTransform.modelMatrix());
 	plane.draw();
 
-	geoShader.setMat4("_TransformModel", glm::translate(portal1->transform.position));
+	geoShader.setMat4("_TransformModel", monkeyTransform.modelMatrix());
+	suzanne->draw();
+
+	
+
+	/*geoShader.setMat4("_TransformModel", glm::translate(portal1->transform.position));
 	sphere.draw();
 	geoShader.setMat4("_TransformModel", glm::translate(portal2->transform.position));
-	sphere.draw();
+	sphere.draw();*/
 
 }
 
@@ -334,14 +345,14 @@ void recursiveDraw(glm::mat4 const& viewMat, glm::mat4 const& projMat, size_t ma
 
 			// Draw scene objects with destinationView, limited to stencil buffer
 			// use an edited projection matrix to set the near plane to the portal plane
-			drawOtherObjects(destinationView, portal->ClippedProjMat(destinationView, projMat), geoShader);
+			drawOtherObjects(destinationView, portal->ClippedProjMat(destinationView, projMat, camera.position), geoShader);
 			//drawOtherObjects(destinationView, projMat);
 		}
 		else
 		{
 			// Recursion case
 			// Pass our new view matrix and the clipped projection matrix (see above)
-			recursiveDraw(destinationView, portal->ClippedProjMat(destinationView, projMat), maxRecursionLevel, recursionLevel + 1, portalShader, geoShader);
+			recursiveDraw(destinationView, portal->ClippedProjMat(destinationView, projMat, camera.position), maxRecursionLevel, recursionLevel + 1, portalShader, geoShader);
 		}
 
 		// Disable color and depth drawing
@@ -545,9 +556,8 @@ int main() {
 
 	light.lightPos = glm::vec3(0.0, 2.0, 0.0);
 	light.lightColor = glm::vec3(1.0, 0.0, 1.0);
-	sphere.load(ew::createSphere(0.5f, 20));
 
-	plane = ew::createPlane(50, 50, 10);
+	initModels();
 
 	//Set up camera
 	initCamera();

@@ -66,7 +66,7 @@ namespace js
 	}
 
 	//function to get the new clipped projection matrix using oblique view frustum near plane clipping technique
-	glm::mat4 const Portal::ClippedProjMat(glm::mat4 const &viewMat, glm::mat4 const &projMat)
+	glm::mat4 const Portal::ClippedProjMat(glm::mat4 const &viewMat, glm::mat4 const &projMat, glm::vec3 const &camPos)
 	{
 		//float distance = glm::length(transform.position);
 		//glm::vec3 newClipPlaneNormal = transform.rotation * glm::vec3(0.0f, 0.0f, -1.0f);
@@ -84,7 +84,7 @@ namespace js
 
 		//return newProjMat;
 
-		float d = glm::length(transform.position);
+		float d = glm::length(camPos - transform.position);
 		glm::vec3 newCLipPlaneNormal = transform.rotation * glm::vec3(0.0f, 0.0f, -1.0f);
 		// Calculate the clip plane with a normal and distance to the origin
 		glm::vec4 newClipPlane(newCLipPlaneNormal, d);
