@@ -64,14 +64,6 @@ namespace js
 	{
 		return color;
 	}
-	void Portal::setTransform(ew::Transform t)
-	{
-		transform = t;
-	}
-	ew::Transform Portal::getTransform()
-	{
-		return ew::Transform();
-	}
 
 	//function to get the new clipped projection matrix using oblique view frustum near plane clipping technique
 	glm::mat4 const Portal::ClippedProjMat(glm::mat4 const &viewMat, glm::mat4 const &projMat)

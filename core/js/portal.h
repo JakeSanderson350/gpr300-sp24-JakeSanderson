@@ -27,8 +27,6 @@ namespace js
 			Portal* GetDestination();
 			void SetColor(glm::vec3 _color);
 			glm::vec3 GetColor();
-			void setTransform(ew::Transform t);
-			ew::Transform getTransform();
 
 			glm::mat4 const ClippedProjMat(glm::mat4 const &viewMat, glm::mat4 const &projMat);
 
@@ -39,7 +37,6 @@ namespace js
 
 		private:
 			
-			ew::Camera portalCamera;
 			ew::Mesh portalPlane;
 			Portal* destination;
 			glm::vec3 normal;
