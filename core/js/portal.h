@@ -5,6 +5,7 @@
 #include "../ew/transform.h"
 #include "../ew/shader.h"
 #include "../ew/procGen.h"
+#include "../ew/camera.h"
 #include <GLFW/glfw3.h>
 #include <glm/gtc/matrix_access.hpp>
 
@@ -26,6 +27,8 @@ namespace js
 			Portal* GetDestination();
 			void SetColor(glm::vec3 _color);
 			glm::vec3 GetColor();
+			void setTransform(ew::Transform t);
+			ew::Transform getTransform();
 
 			glm::mat4 const ClippedProjMat(glm::mat4 const &viewMat, glm::mat4 const &projMat);
 
@@ -36,7 +39,7 @@ namespace js
 
 		private:
 			
-			
+			ew::Camera portalCamera;
 			ew::Mesh portalPlane;
 			Portal* destination;
 			glm::vec3 normal;

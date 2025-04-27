@@ -64,6 +64,14 @@ namespace js
 	{
 		return color;
 	}
+	void Portal::setTransform(ew::Transform t)
+	{
+		transform = t;
+	}
+	ew::Transform Portal::getTransform()
+	{
+		return ew::Transform();
+	}
 
 	//function to get the new clipped projection matrix using oblique view frustum near plane clipping technique
 	glm::mat4 const Portal::ClippedProjMat(glm::mat4 const &viewMat, glm::mat4 const &projMat)
@@ -109,12 +117,13 @@ namespace js
 
 		return newProjMat;
 	}
-
+	
 	void Portal::draw(glm::mat4 const& viewMat, glm::mat4 const& projMat, ew::Shader portalShader)
 	{
 		portalShader.use();
 		//set uniforms
 		portalShader.setMat4("_TransformModel", transform.modelMatrix());
+		//portalShader.setMat4("_CameraViewproj", portalCamera.projectionMatrix() * portalCamera.viewMatrix());
 		portalShader.setMat4("_CameraViewproj", projMat * viewMat);
 		portalShader.setVec3("_PortalColor", color);
 		//portalPlane.draw();

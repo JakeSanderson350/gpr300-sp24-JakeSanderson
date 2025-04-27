@@ -164,6 +164,11 @@ float lightSpacer = 8;
 float suzanneSpacer = 3;
 int suzaneNum = 1;
 
+glm::vec3 p1Position = glm::vec3(0,1,0);
+glm::vec3 p2Position = glm::vec3(-5, 1, 0);
+glm::vec3 p1Rotation = glm::vec3(0, 0, 0);
+glm::vec3 p2Rotation = glm::vec3(0, 0, 0);
+
 //Global models
 ew::Model* suzanne;
 ew::Transform monkeyTransform;
@@ -212,10 +217,10 @@ void initPortals()
 
 	portal1->SetColor(glm::vec3(0.0f, 1.0f, 0.0f));
 	portal2->SetColor(glm::vec3(0.0f, 0.0f, 1.0f));
-	portal1->transform.position = glm::vec3(0, 1, 0);
-	portal1->transform.rotation = glm::quat(glm::radians(glm::vec3(0, 0, 0)));;
-	portal2->transform.position = glm::vec3(-5, 1, 0);
-	portal2->transform.rotation = glm::quat(glm::radians(glm::vec3(0, 0, 0)));
+	portal1->transform.position = p1Position;
+	portal1->transform.rotation = glm::quat(glm::radians(p1Rotation));;
+	portal2->transform.position = p2Position;
+	portal2->transform.rotation = glm::quat(glm::radians(p2Rotation));
 
 	portals.push_back(portal1);
 	portals.push_back(portal2);
@@ -570,6 +575,11 @@ int main() {
 	while (!glfwWindowShouldClose(window)) {
 		glfwPollEvents();
 
+		portal1->transform.position = p1Position;
+		portal1->transform.rotation = p1Rotation;
+		portal2->transform.position = p2Position;
+		portal2->transform.rotation = p2Rotation;
+
 		float time = (float)glfwGetTime();
 		deltaTime = time - prevFrameTime;
 		prevFrameTime = time;
@@ -609,6 +619,17 @@ void drawUI() {
 		ImGui::SliderFloat("DiffuseK", &material.Kd, 0.0f, 1.0f);
 		ImGui::SliderFloat("SpecularK", &material.Ks, 0.0f, 1.0f);
 		ImGui::SliderFloat("Shininess", &material.Shininess, 2.0f, 256.0f);
+	}
+
+	if (ImGui::CollapsingHeader("Portal 1"))
+	{
+		ImGui::SliderFloat3("Position", &p1Position.x, -5.0f, 5.0f);
+		ImGui::SliderFloat3("Rotation", &p1Rotation.x, -5.0f, 5.0f);
+	}
+	if (ImGui::CollapsingHeader("Portal 2"))
+	{
+		ImGui::SliderFloat3("Position", &p2Position.x, -5.0f, 5.0f);
+		ImGui::SliderFloat3("Rotation", &p2Rotation.x, -5.0f, 5.0f);
 	}
 
 	ImGui::SliderInt("Num Suzes", &suzaneNum, 1, 100);
