@@ -156,7 +156,7 @@ struct Light {
 	float radius;
 }light;
 
-const int lightEdgeNum = 1;
+const int lightEdgeNum = 2;
 const int lightsNum = lightEdgeNum * lightEdgeNum;
 Light lights[lightsNum];
 
@@ -242,16 +242,16 @@ void initLights()
 		for (int j = 0; j < lightEdgeNum; j++)
 		{
 			lights[(i * lightEdgeNum) + j].lightPos = glm::vec3(i * lightSpacer, 4, j * lightSpacer);
-			lights[(i * lightEdgeNum) + j].lightColor = glm::vec3(1);
+			lights[(i * lightEdgeNum) + j].lightColor = randomColor();
 			lights[(i * lightEdgeNum) + j].radius = 45.0f;
 		}
 	}
 
 	// Move lights os they are more centered over plane
-	/*for (int i = 0; i < lightsNum; i++)
+	for (int i = 0; i < lightsNum; i++)
 	{
-		lights[i].lightPos += glm::vec3(-27.5, 0, -27.5);
-	}*/
+		lights[i].lightPos += glm::vec3(-8, 0, -8);
+	}
 }
 
 void drawOtherObjects(glm::mat4 const& viewMat, glm::mat4 const& projMat, ew::Shader geoShader)
@@ -261,18 +261,7 @@ void drawOtherObjects(glm::mat4 const& viewMat, glm::mat4 const& projMat, ew::Sh
 
 	geoShader.use();
 	geoShader.setInt("_MainTexture", 0);
-	geoShader.setMat4("_CameraViewproj", projMat * viewMat);
-
-	//for (int i = 1; i <= suzaneNum; i++)
-	//{
-	//	for (int j = 1; j <= suzaneNum; j++)
-	//	{
-	//		// Draw suzanne
-	//		//_modelTransform.position = glm::vec3(_modelTransform.position.x + (i * 2), 0, _modelTransform.position.z + (j * 2));
-	//		
-	//	}
-	//}
-	
+	geoShader.setMat4("_CameraViewproj", projMat * viewMat);	
 
 	geoShader.setMat4("_TransformModel", monkeyTransform.modelMatrix());
 	suzanne->draw();
@@ -290,7 +279,8 @@ void drawOtherObjects(glm::mat4 const& viewMat, glm::mat4 const& projMat, ew::Sh
 void recursiveDraw(glm::mat4 const& viewMat, glm::mat4 const& projMat, size_t maxRecursionLevel, size_t recursionLevel, ew::Shader portalShader, ew::Shader geoShader)
 {
 	// Clear stencil buffer at start of frame
-	if (recursionLevel == 0) {
+	if (recursionLevel == 0) 
+	{
 		glClear(GL_STENCIL_BUFFER_BIT);
 	}
 
@@ -356,7 +346,6 @@ void recursiveDraw(glm::mat4 const& viewMat, glm::mat4 const& projMat, size_t ma
 			// Draw scene objects with destinationView, limited to stencil buffer
 			// use an edited projection matrix to set the near plane to the portal plane
 			drawOtherObjects(destinationView, portal->ClippedProjMat(destinationView, projMat), geoShader);
-			//drawOtherObjects(destinationView, projMat);
 		}
 		else
 		{
@@ -511,31 +500,6 @@ void drawGeometry(ew::Shader& _geoshader, ew::Model& _model, ew::Mesh& _plane, e
 	// 2. gfx pass
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	glClearColor(0.6f, 0.8f, 0.92f, 1.0f);
-
-	glActiveTexture(GL_TEXTURE0);
-	glBindTexture(GL_TEXTURE_2D, _texture);
-
-	//_modelTransform.rotation = glm::rotate(_modelTransform.rotation, deltaTime, glm::vec3(0.0f, 1.0f, 0.0f));
-
-	//_geoshader.use();
-	//_geoshader.setInt("_MainTexture", 0);
-	//_geoshader.setMat4("_CameraViewproj", camera.projectionMatrix() * camera.viewMatrix());
-
-	//for (int i = 1; i <= suzaneNum; i++)
-	//{
-	//	for (int j = 1; j <= suzaneNum; j++)
-	//	{
-	//		// Draw suzanne
-	//		//_modelTransform.position = glm::vec3(_modelTransform.position.x + (i * 2), 0, _modelTransform.position.z + (j * 2));
-	//		_geoshader.setMat4("_TransformModel", glm::translate(_modelTransform.modelMatrix(), glm::vec3(i * suzanneSpacer, 0, j * suzanneSpacer)));
-	//		_model.draw();
-	//	}
-	//}
-
-	//_geoshader.setMat4("_TransformModel", glm::translate(_modelTransform.modelMatrix(), glm::vec3(0, -3, 0)));
-	//_plane.draw();
-
-	//portal1.draw(camera.viewMatrix(), camera.projectionMatrix(), portalShader);
 
 	//portal drawing
 	recursiveDraw(camera.viewMatrix(), camera.projectionMatrix(), 0, 0, portalShader, _geoshader);  //Using camera matrices for now, may need to replace them with portal-specific ones
