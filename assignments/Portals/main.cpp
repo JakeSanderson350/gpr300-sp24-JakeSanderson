@@ -345,13 +345,13 @@ void recursiveDraw(glm::mat4 const& viewMat, glm::mat4 const& projMat, size_t ma
 
 			// Draw scene objects with destinationView, limited to stencil buffer
 			// use an edited projection matrix to set the near plane to the portal plane
-			drawOtherObjects(destinationView, portal->ClippedProjMat(destinationView, projMat), geoShader);
+			drawOtherObjects(destinationView, portal->ClippedProjMat(destinationView, projMat, camera), geoShader);
 		}
 		else
 		{
 			// Recursion case
 			// Pass our new view matrix and the clipped projection matrix (see above)
-			recursiveDraw(destinationView, portal->ClippedProjMat(destinationView, projMat), maxRecursionLevel, recursionLevel + 1, portalShader, geoShader);
+			recursiveDraw(destinationView, portal->ClippedProjMat(destinationView, projMat, camera), maxRecursionLevel, recursionLevel + 1, portalShader, geoShader);
 		}
 
 		// Disable color and depth drawing
