@@ -120,10 +120,10 @@ struct FrameBuffer
 		// Depth attachment
 		glGenTextures(1, &framebuffer.depth);
 		glBindTexture(GL_TEXTURE_2D, framebuffer.depth);
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH24_STENCIL8, fbWidth, fbHeight, 0, GL_DEPTH_COMPONENT, GL_FLOAT, nullptr);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH24_STENCIL8, fbWidth, fbHeight, 0, GL_DEPTH_STENCIL, GL_UNSIGNED_INT_24_8, nullptr);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, framebuffer.depth, 0);
+		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_TEXTURE_2D, framebuffer.depth, 0);
 
 		// Stencil
 		/*glGenTextures(1, &framebuffer.stencil);
@@ -202,7 +202,7 @@ void initModels()
 	sphere.load(ew::createSphere(0.5f, 20));
 	plane = ew::createPlane(50, 50, 10);
 
-	monkeyTransform.position = glm::vec3(0, 0, 5);
+	monkeyTransform.position = glm::vec3(0, 0, 3);
 	planeTransform.position = glm::vec3(0, -3, 0);
 }
 
@@ -278,12 +278,6 @@ void drawOtherObjects(glm::mat4 const& viewMat, glm::mat4 const& projMat, ew::Sh
 
 void recursiveDraw(glm::mat4 const& viewMat, glm::mat4 const& projMat, size_t maxRecursionLevel, size_t recursionLevel, ew::Shader portalShader, ew::Shader geoShader)
 {
-	// Clear stencil buffer at start of frame
-	if (recursionLevel == 0) 
-	{
-		glClear(GL_STENCIL_BUFFER_BIT);
-	}
-
 	for (js::Portal* portal : portals)
 	{
 		// Disable color and depth writing
@@ -299,11 +293,11 @@ void recursiveDraw(glm::mat4 const& viewMat, glm::mat4 const& projMat, size_t ma
 
 		// Fail stencil test when inside of outer portal
 		// (fail where we should be drawing the inner portal)
-		glStencilFunc(GL_NOTEQUAL, recursionLevel, 0xFF);
+		glStencilFunc(GL_ALWAYS, recursionLevel + 1, 0xFF);
 
 		// Increment stencil value on stencil fail
 		// (on area of inner portal)
-		glStencilOp(GL_INCR, GL_KEEP, GL_KEEP);
+		glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
 
 		// Enable (writing into) all stencil bits
 		glStencilMask(0xFF);
@@ -364,13 +358,13 @@ void recursiveDraw(glm::mat4 const& viewMat, glm::mat4 const& projMat, size_t ma
 
 		// Fail stencil test when inside of our newly rendered
 		// inner portal
-		glStencilFunc(GL_NOTEQUAL, recursionLevel + 1, 0xFF);
+		glStencilFunc(GL_EQUAL, recursionLevel + 1, 0xFF);
 
 		// Decrement stencil value on stencil fail
 		// This resets the incremented values to what they were before,
 		// eventually ending up with a stencil buffer full of zero's again
 		// after the last (outer) step.
-		glStencilOp(GL_DECR, GL_KEEP, GL_KEEP);
+		glStencilOp(GL_ZERO, GL_ZERO, GL_ZERO);
 
 		// Draw portal into stencil buffer
 		portal->draw(viewMat, projMat, portalShader);
@@ -496,13 +490,17 @@ void drawGeometry(ew::Shader& _geoshader, ew::Model& _model, ew::Mesh& _plane, e
 	glCullFace(GL_BACK);
 
 	glEnable(GL_DEPTH_TEST);
+	glEnable(GL_STENCIL_TEST);
 
 	// 2. gfx pass
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 	glClearColor(0.6f, 0.8f, 0.92f, 1.0f);
+	glClearStencil(0);
 
 	//portal drawing
-	recursiveDraw(camera.viewMatrix(), camera.projectionMatrix(), 0, 0, portalShader, _geoshader);  //Using camera matrices for now, may need to replace them with portal-specific ones
+	recursiveDraw(camera.viewMatrix(), camera.projectionMatrix(), 2, 0, portalShader, _geoshader);
+
+	glDisable(GL_STENCIL_TEST);
 
 	//unbind here
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -602,7 +600,7 @@ void drawUI() {
 	ImGui::Text("Number of suzes: ");
 	ImGui::Text(std::to_string(totalSuzes).c_str());
 
-	ImGui::Image((ImTextureID)(intptr_t)framebuffer.color0, ImVec2(fbWidth, fbHeight));
+	ImGui::Image((ImTextureID)(intptr_t)framebuffer.depth, ImVec2(fbWidth / 3, fbHeight / 3));
 	ImGui::Image((ImTextureID)(intptr_t)framebuffer.color1, ImVec2(fbWidth, fbHeight));
 	ImGui::Image((ImTextureID)(intptr_t)framebuffer.color2, ImVec2(fbWidth, fbHeight));
 

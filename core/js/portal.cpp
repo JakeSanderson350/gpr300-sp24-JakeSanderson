@@ -71,26 +71,10 @@ namespace js
 	//function to get the new clipped projection matrix using oblique view frustum near plane clipping technique
 	glm::mat4 const Portal::ClippedProjMat(glm::mat4 const &viewMat, glm::mat4 const &projMat, ew::Camera const &camera)
 	{
-		//float distance = glm::length(transform.position);
-		//glm::vec3 newClipPlaneNormal = transform.rotation * glm::vec3(0.0f, 0.0f, -1.0f);
-		////Calculate the clip plane using the new clip plane's normal and its distance to the origin
-		//glm::vec4 newClipPlane(newClipPlaneNormal, distance);
-		//newClipPlane = glm::inverse(glm::transpose(viewMat)) * newClipPlane;
-		////If the new clip plane is facing away from the camera, use the old projection matrix
-		//if (newClipPlane.w > 0.0f)
-		////{
-		////	return projMat;
-		////}
-		//glm::vec4 c = glm::inverse(projMat) * glm::vec4(glm::sign(newClipPlane.x), glm::sign(newClipPlane.y), 1.0f, 1.0f);
-		//glm::mat4 newProjMat = projMat;
-		//newProjMat = glm::row(newProjMat, 2, c - glm::row(newProjMat, 3));
-
-		//return newProjMat;
-
 		//float d = glm::length(transform.position);
 		glm::vec3 newCLipPlaneNormal = transform.rotation * glm::vec3(0.0f, 0.0f, -1.0f);
 		float d = glm::dot(-newCLipPlaneNormal, glm::normalize(camera.position - transform.position));
-		std::cout << d << "\n";
+		//std::cout << d << "\n";
 
 		// Calculate the clip plane with a normal and distance to the origin
 		glm::vec4 newClipPlane(newCLipPlaneNormal, 0);
@@ -124,14 +108,8 @@ namespace js
 		portalShader.use();
 		//set uniforms
 		portalShader.setMat4("_TransformModel", transform.modelMatrix());
-		//portalShader.setMat4("_CameraViewproj", portalCamera.projectionMatrix() * portalCamera.viewMatrix());
 		portalShader.setMat4("_CameraViewproj", projMat * viewMat);
 		portalShader.setVec3("_PortalColor", color);
-		
-		/*ew::Transform planeTransform = transform;
-		glm::rotate(planeTransform.rotation, 90.0f, glm::vec3(1, 0, 0));
-		portalShader.setMat4("_TransformModel", planeTransform.modelMatrix());
-		portalPlane.draw();*/
 
 		glBindVertexArray(p_vao);
 		glDrawArrays(GL_TRIANGLES, 0, 6);
