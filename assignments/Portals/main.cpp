@@ -574,36 +574,55 @@ void drawUI() {
 	{
 		initCamera();
 	}
+	if (ImGui::Button("Reset Portals"))
+	{
+		p1Position = glm::vec3(0, 1.0f, 0);
+		p2Position = glm::vec3(-5.0f, 1.0f, 0);
+		p1Rotation = glm::vec3(0, 0, 0);
+		p2Rotation = glm::vec3(0, 0, 0);
+	}
+	if (ImGui::Button("Reset Suzanne"))
+	{
+		monkeyTransform.position = glm::vec3(0, 0, 3);
+		monkeyTransform.rotation = glm::vec3(0, 0, 0);
+	}
 	
-	if (ImGui::CollapsingHeader("Material"))
+	
+	/*if (ImGui::CollapsingHeader("Material"))
 	{
 		ImGui::SliderFloat("AmbientK", &material.Ka, 0.0f, 1.0f);
 		ImGui::SliderFloat("DiffuseK", &material.Kd, 0.0f, 1.0f);
 		ImGui::SliderFloat("SpecularK", &material.Ks, 0.0f, 1.0f);
 		ImGui::SliderFloat("Shininess", &material.Shininess, 2.0f, 256.0f);
-	}
+	}*/
 
 	if (ImGui::CollapsingHeader("Portal 1"))
 	{
-		ImGui::SliderFloat3("Position", &p1Position.x, -5.0f, 5.0f);
-		ImGui::SliderFloat3("Rotation", &p1Rotation.x, -5.0f, 5.0f);
+		ImGui::SliderFloat3("Position", &p1Position.x, -7.0f, 7.0f);
+		ImGui::SliderFloat3("Rotation", &p1Rotation.x, -7.0f, 7.0f);
 	}
 	if (ImGui::CollapsingHeader("Portal 2"))
 	{
-		ImGui::SliderFloat3("Position", &p2Position.x, -5.0f, 5.0f);
-		ImGui::SliderFloat3("Rotation", &p2Rotation.x, -5.0f, 5.0f);
+		ImGui::SliderFloat3("Position", &p2Position.x, -7.0f, 7.0f);
+		ImGui::SliderFloat3("Rotation", &p2Rotation.x, -7.0f, 7.0f);
 	}
+	if (ImGui::CollapsingHeader("Suzanne"))
+	{
+		ImGui::SliderFloat3("Position", &monkeyTransform.position.x, -7.0f, 7.0f);
+		ImGui::SliderFloat3("Rotation", &monkeyTransform.rotation.x, -7.0f, 7.0f);
+	}
+	//ImGui::SliderInt("Num Suzes", &suzaneNum, 1, 100);
+	//ImGui::SliderFloat("Suzanne Spacer", &suzanneSpacer, 0.0f, 10.0f);
+	//int totalSuzes = pow(2 * suzaneNum + 1, 2);
+	//ImGui::Text("Number of suzes: ");
+	//ImGui::Text(std::to_string(totalSuzes).c_str());
 
-	ImGui::SliderInt("Num Suzes", &suzaneNum, 1, 100);
-	ImGui::SliderFloat("Suzanne Spacer", &suzanneSpacer, 0.0f, 10.0f);
-	int totalSuzes = pow(2 * suzaneNum + 1, 2);
-	ImGui::Text("Number of suzes: ");
-	ImGui::Text(std::to_string(totalSuzes).c_str());
-
-	ImGui::Image((ImTextureID)(intptr_t)framebuffer.depth, ImVec2(fbWidth / 3, fbHeight / 3));
-	ImGui::Image((ImTextureID)(intptr_t)framebuffer.color1, ImVec2(fbWidth, fbHeight));
-	ImGui::Image((ImTextureID)(intptr_t)framebuffer.color2, ImVec2(fbWidth, fbHeight));
-
+	if (ImGui::CollapsingHeader("Framebuffers"))
+	{
+		ImGui::Image((ImTextureID)(intptr_t)framebuffer.depth, ImVec2(fbWidth / 3, fbHeight / 3));
+		ImGui::Image((ImTextureID)(intptr_t)framebuffer.color1, ImVec2(fbWidth, fbHeight));
+		ImGui::Image((ImTextureID)(intptr_t)framebuffer.color2, ImVec2(fbWidth, fbHeight));
+	}
 
 	ImGui::End();
 
