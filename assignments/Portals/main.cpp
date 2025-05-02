@@ -24,6 +24,8 @@ int fbWidth = 1080;
 int fbHeight = 720;
 float prevFrameTime;
 float deltaTime;
+float time;
+bool speen;
 
 //Cached data
 #include <ew/shader.h>
@@ -263,6 +265,11 @@ void drawOtherObjects(glm::mat4 const& viewMat, glm::mat4 const& projMat, ew::Sh
 	geoShader.setInt("_MainTexture", 0);
 	geoShader.setMat4("_CameraViewproj", projMat * viewMat);	
 
+	if (speen)
+	{
+		monkeyTransform.rotation = glm::rotate(monkeyTransform.rotation, deltaTime, glm::vec3(0.0f, 1.0f, 0.0f));
+	}
+	
 	geoShader.setMat4("_TransformModel", monkeyTransform.modelMatrix());
 	suzanne->draw();
 	geoShader.setMat4("_TransformModel", planeTransform.modelMatrix());
@@ -536,6 +543,9 @@ int main() {
 
 	while (!glfwWindowShouldClose(window)) {
 		glfwPollEvents();
+		/*time = (float)glfwGetTime();
+		deltaTime = time - prevFrameTime;
+		prevFrameTime = time;*/
 
 		portal1->transform.position = p1Position;
 		portal1->transform.rotation = p1Rotation;
@@ -588,13 +598,13 @@ void drawUI() {
 	}
 	
 	
-	/*if (ImGui::CollapsingHeader("Material"))
+	if (ImGui::CollapsingHeader("Material"))
 	{
 		ImGui::SliderFloat("AmbientK", &material.Ka, 0.0f, 1.0f);
 		ImGui::SliderFloat("DiffuseK", &material.Kd, 0.0f, 1.0f);
 		ImGui::SliderFloat("SpecularK", &material.Ks, 0.0f, 1.0f);
 		ImGui::SliderFloat("Shininess", &material.Shininess, 2.0f, 256.0f);
-	}*/
+	}
 
 	if (ImGui::CollapsingHeader("Portal 1"))
 	{
@@ -609,7 +619,7 @@ void drawUI() {
 	if (ImGui::CollapsingHeader("Suzanne"))
 	{
 		ImGui::SliderFloat3("Position", &monkeyTransform.position.x, -7.0f, 7.0f);
-		ImGui::SliderFloat3("Rotation", &monkeyTransform.rotation.x, -7.0f, 7.0f);
+		ImGui::Checkbox("Spin", &speen);
 	}
 	//ImGui::SliderInt("Num Suzes", &suzaneNum, 1, 100);
 	//ImGui::SliderFloat("Suzanne Spacer", &suzanneSpacer, 0.0f, 10.0f);
