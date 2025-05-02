@@ -37,7 +37,6 @@ namespace js
 
 		private:
 			
-			ew::Mesh portalPlane;
 			Portal* destination;
 			glm::vec3 normal;
 			glm::vec3 color;

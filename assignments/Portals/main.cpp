@@ -302,7 +302,7 @@ void recursiveDraw(glm::mat4 const& viewMat, glm::mat4 const& projMat, size_t ma
 		// (fail where we should be drawing the inner portal)
 		glStencilFunc(GL_ALWAYS, recursionLevel + 1, 0xFF);
 
-		// Increment stencil value on stencil fail
+		// Increment stencil value on stencil and depth fail
 		// (on area of inner portal)
 		glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
 
@@ -609,12 +609,12 @@ void drawUI() {
 	if (ImGui::CollapsingHeader("Portal 1"))
 	{
 		ImGui::SliderFloat3("Position", &p1Position.x, -7.0f, 7.0f);
-		ImGui::SliderFloat3("Rotation", &p1Rotation.x, -7.0f, 7.0f);
+		ImGui::SliderFloat3("Rotation", &p1Rotation.x, -3.14f, 7.0f);
 	}
 	if (ImGui::CollapsingHeader("Portal 2"))
 	{
 		ImGui::SliderFloat3("Position", &p2Position.x, -7.0f, 7.0f);
-		ImGui::SliderFloat3("Rotation", &p2Rotation.x, -7.0f, 7.0f);
+		ImGui::SliderFloat3("Rotation", &p2Rotation.x, -3.14f, 7.0f);
 	}
 	if (ImGui::CollapsingHeader("Suzanne"))
 	{
